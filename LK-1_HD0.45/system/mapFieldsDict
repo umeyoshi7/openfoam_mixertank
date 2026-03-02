@@ -1,0 +1,33 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2012                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      mapFieldsDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// MRF (LK-1_HD0.45_MRF) → pimpleFoam (LK-1_HD0.45) のパッチマッピング
+// 同一メッシュ・同一パッチ名のため直接対応
+patchMap
+(
+    top                 top
+    reactor_HD0.45      reactor_HD0.45
+    shaft_HD0.45        shaft_HD0.45
+    impeller_HD0.45     impeller_HD0.45
+    baffle_HD0.45       baffle_HD0.45
+    AMI1                AMI1
+    AMI2                AMI2
+);
+
+cuttingPatches ();
+
+
+// ************************************************************************* //

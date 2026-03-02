@@ -1,0 +1,62 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2012                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      createBafflesDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Whether to convert internal faces only (so leave boundary faces intact).
+// This is only relevant if your face selection type can pick up boundary
+// faces.
+internalFacesOnly true;
+
+
+// Baffles to create.
+baffles
+{
+    rotation_HD0.45
+    {
+        //- Use predefined faceZone to select faces and orientation.
+        type        faceZone;
+        zoneName    rotating;
+
+        patches
+        {
+            master
+            {
+                //- Master side patch
+                name            AMI1;
+                type            cyclicAMI;
+                matchTolerance  0.0001;
+                neighbourPatch  AMI2;
+                transform       rotational;
+                rotationAxis    (0 1 0);
+                rotationCentre  (0 0 0);
+            }
+
+            slave
+            {
+                //- Slave side patch
+                name            AMI2;
+                type            cyclicAMI;
+                matchTolerance  0.0001;
+                neighbourPatch  AMI1;
+                transform       rotational;
+                rotationAxis    (0 1 0);
+                rotationCentre  (0 0 0);
+            }
+        }
+    }
+}
+
+
+// ************************************************************************* //

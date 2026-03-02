@@ -1,0 +1,260 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2012                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      snappyHexMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Which of the steps to run
+castellatedMesh true;
+snap            true;
+addLayers       false;
+
+geometry
+{
+    reactor_HD0.45
+    {
+        file    "reactor_HD0.45.stl";
+        type    triSurfaceMesh;
+    }
+
+    shaft_HD0.45
+    {
+        file    "shaft_HD0.45.stl";
+        type    triSurfaceMesh;
+    }
+
+    impeller_HD0.45
+    {
+        file    "impeller_HD0.45.stl";
+        type    triSurfaceMesh;
+    }
+
+    baffle_HD0.45
+    {
+        file    "baffle_HD0.45.stl";
+        type    triSurfaceMesh;
+    }
+
+    rotation_HD0.45
+    {
+        file    "rotation_HD0.45.stl";
+        type    triSurfaceMesh;
+    }
+}
+
+
+castellatedMeshControls
+{
+    maxLocalCells 100000;
+
+    maxGlobalCells 3000000;
+
+    minRefinementCells 2;
+
+    maxLoadUnbalance 0.10;
+
+    nCellsBetweenLevels 4;
+
+    features
+    (
+        {
+           file "reactor_HD0.45.eMesh";
+           levels ((1 1));
+        }
+        {
+           file "impeller_HD0.45.eMesh";
+           levels ((1 1));
+        }
+        {
+           file "baffle_HD0.45.eMesh";
+           levels ((1 1));
+        }
+        {
+           file "shaft_HD0.45.eMesh";
+           levels ((1 1));
+        }
+        {
+           file "rotation_HD0.45.eMesh";
+           levels ((1 1));
+        }
+    );
+
+    refinementSurfaces
+    {
+        reactor_HD0.45
+        {
+            level (2 2);
+            patchInfo
+            {
+                type wall;
+                inGroups (meshedWalls);
+            }
+        }
+
+        impeller_HD0.45
+        {
+            level (3 4);
+            patchInfo
+            {
+                ${...reactor_HD0.45.patchInfo}
+            }
+        }
+
+        shaft_HD0.45
+        {
+            level (3 4);
+            patchInfo
+            {
+                ${...reactor_HD0.45.patchInfo}
+            }
+        }
+
+        baffle_HD0.45
+        {
+            level (2 2);
+            patchInfo
+            {
+                ${...reactor_HD0.45.patchInfo}
+            }
+        }
+
+        rotation_HD0.45
+        {
+            level (2 2);
+            cellZone rotating;
+            faceZone rotating;
+            cellZoneInside insidePoint;
+            insidePoint (0.05 0.0 0.05);
+        }
+    }
+
+    resolveFeatureAngle 30;
+
+    refinementRegions
+    {
+    }
+
+    locationInMesh (0 -0.07 0);
+
+    allowFreeStandingZoneFaces true;
+}
+
+
+snapControls
+{
+    nSmoothPatch 3;
+
+    tolerance 1.0;
+
+    nSolveIter 300;
+
+    nRelaxIter 10;
+    
+    nFeatureSnapIter 10;
+
+    implicitFeatureSnap false;
+
+    explicitFeatureSnap true;
+
+    multiRegionFeatureSnap false;
+}
+
+addLayersControls
+{
+    relativeSizes true;
+
+    expansionRatio 1.0;
+
+    finalLayerThickness 0.3;
+
+    minThickness 0.25;
+
+    layers
+    {
+        impeller_HD0.45
+        {
+            nSurfaceLayers      2;
+        }
+        shaft_HD0.45
+        {
+            nSurfaceLayers      2;
+        }
+        rotation_HD0.45
+        {
+            nSurfaceLayers      2;
+        }
+    }
+
+    nGrow 0;
+
+    featureAngle 30;
+
+    nRelaxIter 5;
+
+    nSmoothSurfaceNormals 1;
+
+    nSmoothNormals 3;
+
+    nSmoothThickness 10;
+
+    maxFaceThicknessRatio 0.5;
+
+    maxThicknessToMedialRatio 0.3;
+
+    minMedialAxisAngle 90;
+
+    nBufferCellsNoExtrude 0;
+
+    nLayerIter 50;
+
+    nRelaxedIter 20;
+}
+
+meshQualityControls
+{
+    maxNonOrtho 55;
+
+    maxBoundarySkewness 3;
+    maxInternalSkewness 3;
+
+    maxConcave 80;
+
+    minVol 1e-13;
+
+    minTetQuality 1e-9;
+
+    minArea 1e-10;
+
+    minTwist 0.05;
+
+    minDeterminant 0.01;
+
+    minFaceWeight 0.03;
+
+    minVolRatio 0.1;
+
+    minTriangleTwist 0.05;
+
+    nSmoothScale 4;
+    
+    errorReduction 0.85;
+
+    relaxed
+    {
+        maxNonOrtho 75;
+    }
+}
+
+mergeTolerance 1e-6;
+
+// ************************************************************************* //

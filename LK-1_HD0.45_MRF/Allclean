@@ -1,0 +1,15 @@
+#!/bin/sh
+cd "${0%/*}" || exit 1   # run from this directory
+
+. ${WM_PROJECT_DIR:?}/bin/tools/CleanFunctions
+
+# シンボリックリンクは削除しない
+cleanCase
+
+# processor ディレクトリ削除
+rm -rf processor*
+
+# ログファイル削除
+rm -f log.*
+
+#------------------------------------------------------------------------------
