@@ -20,6 +20,9 @@ LK-1_HD0.45/constant/polyMesh/
 # ダウンロードした計算結果
 results/
 
+# バックアップファイル
+*.bak
+
 # Python
 __pycache__/
 *.pyc

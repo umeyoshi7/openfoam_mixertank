@@ -1,13 +1,15 @@
 # Vertex AI Custom Job 設定ファイル
-# 使い方:
+#
+# 【GUI での使い方】
+#   Vertex AI コンソール → Custom Jobs → 新規作成 のフォームで
+#   以下のプレースホルダー値を参考に各フィールドを入力してください。
+#
+# 【CLI での使い方】
 #   gcloud ai custom-jobs create \
 #       --region=${REGION} \
 #       --project=${PROJECT_ID} \
 #       --display-name=openfoam-ami \
 #       --config=gcp/job_config.yaml
-#
-# または submit_job.py を使用:
-#   python gcp/submit_job.py --help
 #
 # プレースホルダー (envsubst で自動展開、または手動で置換):
 #   ${REGION}       : リージョン (例: asia-northeast1)

@@ -21,12 +21,9 @@ GCS からダウンロード
 ```
 gcp/
 ├── README.md              本ファイル
-├── submit_job.py          Vertex AI Custom Job 投入スクリプト (Python)
 ├── job_config.yaml        Vertex AI Custom Job 設定テンプレート (YAML)
 ├── upload_case.sh         ケースファイルを GCS へアップロード
 ├── download_results.sh    計算結果を GCS からダウンロード
-├── build_push.sh          Docker ビルド & Artifact Registry へ Push
-├── requirements.txt       Python 依存パッケージ
 └── .env.example           環境変数テンプレート
 
 docker/
@@ -40,9 +37,7 @@ docker/
 
 | ツール | バージョン目安 | 確認コマンド |
 |--------|-------------|-------------|
-| Docker Desktop | 24 以上 | `docker --version` |
 | Google Cloud CLI | 最新 | `gcloud --version` |
-| Python | 3.10 以上 | `python3 --version` |
 | gsutil | gcloud 同梱 | `gsutil --version` |
 
 ---
@@ -79,7 +74,6 @@ source gcp/.env
 ```bash
 gcloud auth login
 gcloud config set project "${PROJECT_ID}"
-gcloud auth application-default login   # Python SDK 用
 ```
 
 ### 0-3. 必要な GCP API を有効化
@@ -98,36 +92,30 @@ gcloud services enable \
 gsutil mb -l "${REGION}" "gs://${BUCKET}"
 ```
 
-### 0-5. Python 依存パッケージをインストール
-
-```bash
-pip install -r gcp/requirements.txt
-```
-
 ---
 
 ## Step 1: Docker イメージをビルドして Artifact Registry へ Push
 
-```bash
-source gcp/.env
-bash gcp/build_push.sh
-```
+Cloud Workstations のターミナルで実行する。詳細は `../README.md` の Step 3 を参照。
 
-**内部処理:**
-1. Artifact Registry リポジトリを作成（初回のみ）
-2. `gcloud auth configure-docker` で Docker 認証を設定
-3. `docker build --platform linux/amd64` でイメージをローカルビルド
-4. `docker push` で Artifact Registry へアップロード
-
-**完了確認:**
 ```bash
-gcloud artifacts docker images list \
-    "${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}" \
+# Artifact Registry リポジトリ作成（初回のみ）
+gcloud artifacts repositories create "${AR_REPO}" \
+    --repository-format=docker \
+    --location="${REGION}" \
     --project="${PROJECT_ID}"
+
+# Docker 認証設定
+gcloud auth configure-docker "${REGION}-docker.pkg.dev"
+
+# イメージビルド & Push
+IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+docker build --platform linux/amd64 -t "${IMAGE_URI}" docker/
+docker push "${IMAGE_URI}"
 ```
 
-> **補足**: Cloud Build は使用しません。ローカルの Docker でビルドします。
-> ARM Mac などクロスプラットフォーム環境では `--platform linux/amd64` が必要です。
+**完了確認（コンソール GUI）:**
+Artifact Registry → リポジトリ → `openfoam` → イメージが表示されることを確認。
 
 ---
 
@@ -199,30 +187,12 @@ gsutil ls "gs://${BUCKET}/cases/"
 
 ---
 
-## Step 3: Vertex AI Custom Job を投入
+## Step 3: Vertex AI Custom Job を投入（GUI）
 
-```bash
-source gcp/.env
-python gcp/submit_job.py \
-    --project      "${PROJECT_ID}" \
-    --region       "${REGION}" \
-    --bucket       "${BUCKET}" \
-    --image        "${IMAGE_URI}" \
-    --ncores       "${NCORES}" \
-    --machine-type "${MACHINE_TYPE}"
-```
+Vertex AI コンソール → **Training** → **Custom Jobs** → **新規作成** から GUI で設定する。
+詳細は `../README.md` の Step 4 を参照。
 
-**主なオプション:**
-
-| オプション | デフォルト | 説明 |
-|-----------|-----------|------|
-| `--ncores` | 4 | MPI コア数 |
-| `--machine-type` | n1-standard-4 | Compute Engine マシンタイプ |
-| `--mrf-end-time` | 3000 | MRF 定常計算の最大イテレーション |
-| `--timeout-hours` | 24 | ジョブタイムアウト時間 |
-| `--sync` | False | 完了まで待機する（デフォルトは非同期） |
-
-**または YAML ファイルから gcloud コマンドで投入:**
+**または CLI で投入:**
 ```bash
 source gcp/.env
 envsubst < gcp/job_config.yaml > /tmp/job_config_expanded.yaml
@@ -252,10 +222,8 @@ gcloud logging read \
     --project="${PROJECT_ID}" --limit=50 --format="value(textPayload)"
 ```
 
-**コンソール:**
-```
-https://console.cloud.google.com/vertex-ai/training/custom-jobs?project=<PROJECT_ID>
-```
+**コンソール GUI でも確認可能:**
+Vertex AI → Training → Custom Jobs でジョブのステータスとログを参照。
 
 ---
 
@@ -277,28 +245,6 @@ bash gcp/download_results.sh "gs://${BUCKET}/results/LK-1_HD0.45_20260302_120000
 ```bash
 gsutil ls "gs://${BUCKET}/results/"
 gsutil ls "gs://${BUCKET}/results/LK-1_HD0.45_<TIMESTAMP>/"
-```
-
----
-
-## ワンライナー実行（全ステップ）
-
-初回セットアップ完了後:
-
-```bash
-source gcp/.env && \
-bash gcp/build_push.sh && \
-bash gcp/upload_case.sh && \
-python gcp/submit_job.py \
-    --project      "${PROJECT_ID}" \
-    --region       "${REGION}" \
-    --bucket       "${BUCKET}" \
-    --image        "${IMAGE_URI}" \
-    --ncores       "${NCORES}" \
-    --machine-type "${MACHINE_TYPE}" \
-    --sync   # 完了まで待機してからダウンロード
-# ジョブ完了後:
-bash gcp/download_results.sh
 ```
 
 ---
@@ -332,10 +278,17 @@ docker pull openfoam/openfoam2012-paraview56:latest
 
 ### ジョブがメモリ不足で終了する
 
-より大きなマシンタイプを指定する:
+Vertex AI コンソールで Custom Job を再作成し、より大きなマシンタイプを選択する。
+または CLI で:
 
 ```bash
-python gcp/submit_job.py ... --machine-type n1-standard-16 --ncores 16
+# MACHINE_TYPE と NCORES を変更して再投入
+MACHINE_TYPE=n1-standard-16 NCORES=16 \
+envsubst < gcp/job_config.yaml > /tmp/job_config_expanded.yaml
+gcloud ai custom-jobs create \
+    --region="${REGION}" --project="${PROJECT_ID}" \
+    --display-name="openfoam-ami" \
+    --config=/tmp/job_config_expanded.yaml
 ```
 
 ### `Cannot find file "points"` エラー (ログ内)
