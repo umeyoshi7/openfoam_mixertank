@@ -1,0 +1,65 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2012                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    location    "0";
+    object      U;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (0 0 0);
+
+boundaryField
+{
+    reactor_HD0.45
+    {
+        type            noSlip;
+    }
+
+    impeller_HD0.45
+    {
+        // MRF フレームでのインペラ壁面速度
+        // omega=-10.47 rad/s, axis=(0 1 0), origin=(0 0 0)
+        type            rotatingWallVelocity;
+        origin          (0 0 0);
+        axis            (0 1 0);
+        omega           -10.47;
+    }
+
+    shaft_HD0.45
+    {
+        type            rotatingWallVelocity;
+        origin          (0 0 0);
+        axis            (0 1 0);
+        omega           -10.47;
+    }
+
+    baffle_HD0.45
+    {
+        type            noSlip;
+    }
+
+    AMI1
+    {
+        type            cyclicAMI;
+        value           uniform (0 0 0);
+    }
+
+    AMI2
+    {
+        type            cyclicAMI;
+        value           uniform (0 0 0);
+    }
+}
+
+// ************************************************************************* //
