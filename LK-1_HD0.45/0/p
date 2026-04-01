@@ -1,0 +1,60 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2012                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "0";
+    object      p;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// 運動学的圧力 p/rho [m^2/s^2]
+dimensions      [0 2 -2 0 0 0 0];
+
+internalField   uniform 0;
+
+boundaryField
+{
+    reactor_HD0.45
+    {
+        // 液面（自由表面）: 基準圧力 0
+        type            fixedValue;
+        value           uniform 0;
+    }
+
+    impeller_HD0.45
+    {
+        type            zeroGradient;
+    }
+
+    shaft_HD0.45
+    {
+        type            zeroGradient;
+    }
+
+    baffle_HD0.45
+    {
+        type            zeroGradient;
+    }
+
+    AMI1
+    {
+        type            cyclicAMI;
+        value           uniform 0;
+    }
+
+    AMI2
+    {
+        type            cyclicAMI;
+        value           uniform 0;
+    }
+}
+
+// ************************************************************************* //

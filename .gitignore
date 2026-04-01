@@ -5,11 +5,15 @@ gcp/.env
 # OpenFOAM 計算結果・タイムディレクトリ
 LK-1_HD0.45/[0-9]*/
 LK-1_HD0.45/[0-9].[0-9]*/
+!LK-1_HD0.45/0/
+!LK-1_HD0.45/0/**
 LK-1_HD0.45/processor*/
 LK-1_HD0.45/postProcessing/
 LK-1_HD0.45/log.*
 LK-1_HD0.45/0.backup/
 LK-1_HD0.45_MRF/[0-9]*/
+!LK-1_HD0.45_MRF/0/
+!LK-1_HD0.45_MRF/0/**
 LK-1_HD0.45_MRF/processor*/
 LK-1_HD0.45_MRF/postProcessing/
 LK-1_HD0.45_MRF/log.*

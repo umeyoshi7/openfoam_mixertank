@@ -1,0 +1,63 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2012                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "0";
+    object      epsilon;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// 乱流散逸率 [m^2/s^3]
+// 推定: L=0.01m (混合長), epsilon = Cmu^0.75 * k^1.5 / L ≈ 5e-4
+dimensions      [0 2 -3 0 0 0 0];
+
+internalField   uniform 5e-4;
+
+boundaryField
+{
+    reactor_HD0.45
+    {
+        type            epsilonWallFunction;
+        value           uniform 5e-4;
+    }
+
+    impeller_HD0.45
+    {
+        type            epsilonWallFunction;
+        value           uniform 5e-4;
+    }
+
+    shaft_HD0.45
+    {
+        type            epsilonWallFunction;
+        value           uniform 5e-4;
+    }
+
+    baffle_HD0.45
+    {
+        type            epsilonWallFunction;
+        value           uniform 5e-4;
+    }
+
+    AMI1
+    {
+        type            cyclicAMI;
+        value           uniform 5e-4;
+    }
+
+    AMI2
+    {
+        type            cyclicAMI;
+        value           uniform 5e-4;
+    }
+}
+
+// ************************************************************************* //
