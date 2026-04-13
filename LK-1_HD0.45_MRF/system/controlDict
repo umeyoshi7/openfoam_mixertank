@@ -50,7 +50,7 @@ functions
     residuals
     {
         type            solverInfo;
-        libs            ( "libutilityFunctionObjects.so" );
+        libs            ( fieldFunctionObjects );
         fields          ( U p k epsilon );
         writeResidualFields no;
     }

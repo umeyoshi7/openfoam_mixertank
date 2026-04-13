@@ -24,9 +24,13 @@ cellZone        rotating;
 
 solidBodyMotionFunction  rotatingMotion;
 
-origin        (0 0 0);
-axis          (0 1 0);
-omega         -10.47;
+// openfoam.org v11: rotatingMotion のパラメータは rotatingMotionCoeffs サブ辞書に記載する
+rotatingMotionCoeffs
+{
+    origin  (0 0 0);
+    axis    (0 1 0);
+    omega   -10.47;   // rad/s (負値 = 右ねじ反対向き)
+}
 
 
 // ************************************************************************* //
