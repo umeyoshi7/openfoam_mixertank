@@ -1,6 +1,6 @@
 #!/bin/bash
 #------------------------------------------------------------------------------
-# entrypoint.sh: Cloud Run Jobs エントリポイント
+# entrypoint.sh: Vertex AI Custom Job エントリポイント
 #
 # フルワークフロー:
 #   1. GCS からケースファイルをダウンロード
@@ -31,7 +31,7 @@ MRF_DIR="${WORKSPACE}/LK-1_HD0.45_MRF"
 TRANSIENT_DIR="${WORKSPACE}/LK-1_HD0.45"
 
 echo "========================================"
-echo "  OpenFOAM Vertex AI / Cloud Run ジョブ"
+echo "  OpenFOAM Vertex AI Custom Job"
 echo "  バケット : gs://${GCS_BUCKET}"
 echo "  コア数   : ${NCORES}"
 echo "  作業DIR  : ${WORKSPACE}"
@@ -54,7 +54,7 @@ echo "  ダウンロード完了"
 echo ""
 echo "[Step 2] OpenFOAM 環境読み込み"
 # shellcheck disable=SC1091
-source /opt/openfoam2012/etc/bashrc
+source /opt/openfoam11/etc/bashrc
 echo "  OpenFOAM: ${WM_PROJECT}-${WM_PROJECT_VERSION}"
 
 # ---------------------------------------------------------------------------
@@ -142,16 +142,23 @@ echo ""
 echo "[Step 5c] pimpleFoam 実行"
 cd "${TRANSIENT_DIR}"
 
-# 並列計算
+# pimpleFoam が途中終了しても結果を GCS にアップロードするため
+# このブロックのみ set -e を一時解除して終了コードを手動で捕捉する。
+# PIMPLE_EXIT はブロック先頭で初期化し、decomposePar 等の前段処理が
+# 失敗した場合でも set -u による「unbound variable」エラーを防ぐ。
+PIMPLE_EXIT=1
+set +e
 if [ "${NCORES}" -gt 1 ]; then
     decomposePar -force 2>&1 | tee log.decomposePar
     mpirun --allow-run-as-root -np "${NCORES}" pimpleFoam -parallel 2>&1 | tee log.pimpleFoam
+    PIMPLE_EXIT=${PIPESTATUS[0]}
     reconstructPar 2>&1 | tee log.reconstructPar
 else
     pimpleFoam 2>&1 | tee log.pimpleFoam
+    PIMPLE_EXIT=${PIPESTATUS[0]}
 fi
+set -e
 
-PIMPLE_EXIT=${PIPESTATUS[0]:-0}
 echo "  pimpleFoam 完了 (exit: ${PIMPLE_EXIT})"
 
 # ---------------------------------------------------------------------------

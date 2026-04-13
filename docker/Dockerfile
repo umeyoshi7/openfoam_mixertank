@@ -1,16 +1,32 @@
-# OpenFOAM v2012 (openfoam.com) + Google Cloud CLI
-# ベースイメージ: openfoam.com 公式 (ParaView 5.6 付き)
-FROM openfoam/openfoam2012-paraview56:latest
+# ==============================================================================
+# OpenFOAM v11 (openfoam.org) + Google Cloud CLI
+# ==============================================================================
+# openfoam.org 公式 Docker イメージ。
+# OpenFOAM v11 が /opt/openfoam11/ にインストール済み。
+# ParaView 5.10 が含まれるが、本ジョブではソルバー実行のみに使用。
+FROM openfoam/openfoam11-paraview510
 
-LABEL description="OpenFOAM v2012 stirred tank simulation with GCS integration"
+# イメージのメタデータ（docker inspect で確認可能）
+LABEL description="OpenFOAM v11 stirred tank simulation with GCS integration"
 
-# システムパッケージ + Google Cloud CLI (apt-get 経由)
+# ------------------------------------------------------------------------------
+# Google Cloud CLI のインストール
+# ------------------------------------------------------------------------------
+# entrypoint.sh が gsutil を使い GCS からケースをダウンロード・
+# 結果をアップロードするため google-cloud-cli が必要。
+# apt リポジトリを GPG 署名付きで追加してからインストールする。
+#
+# インストールするパッケージ:
+#   curl             : GPG 公開鍵を HTTPS でフェッチするために使用
+#   gnupg            : GPG 公開鍵の検証・変換 (gpg --dearmor) に使用
+#   ca-certificates  : HTTPS 通信の TLS 証明書検証に必要
+#   lsb-release      : OS コードネーム取得（apt リポジトリ URL 生成に使用）
+#   apt-transport-https : HTTPS 経由の apt リポジトリを利用するために必要
+#   google-cloud-cli : gsutil を含む Google Cloud コマンドラインツール群
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         curl \
         gnupg \
-        python3 \
-        python3-pip \
         ca-certificates \
         lsb-release \
         apt-transport-https \
@@ -22,20 +38,32 @@ RUN apt-get update && \
     && apt-get update \
     && apt-get install -y --no-install-recommends google-cloud-cli \
     && rm -rf /var/lib/apt/lists/*
+# 最後に apt キャッシュを削除してイメージサイズを削減する
 
-# Python パッケージ (GCS クライアント)
-RUN pip3 install --no-cache-dir \
-    google-cloud-storage==2.14.0
-
-# 作業ディレクトリ
-RUN mkdir -p /workspace
+# ------------------------------------------------------------------------------
+# 作業ディレクトリの設定
+# ------------------------------------------------------------------------------
+# /workspace を作業ディレクトリに設定する（存在しない場合は自動作成）。
+# entrypoint.sh が GCS からケースファイルをここにダウンロードし、
+# 以降の全 OpenFOAM コマンドはこのディレクトリ以下で動作する。
 WORKDIR /workspace
 
-# エントリポイントスクリプト
+# ------------------------------------------------------------------------------
+# エントリポイントスクリプトの配置
+# ------------------------------------------------------------------------------
+# フルワークフロースクリプトをコンテナの / にコピーする。
+# WORKDIR (/workspace) ではなく / に置くことで、
+# 以降の cd コマンドによる作業ディレクトリ変更の影響を受けない。
 COPY entrypoint.sh /entrypoint.sh
+
+# Vertex AI はコンテナの ENTRYPOINT を直接実行するため実行権限の付与が必須
 RUN chmod +x /entrypoint.sh
 
-# コンテナ内は root 実行のため /workspace に全権限付与
-RUN chmod -R 777 /workspace
-
+# ------------------------------------------------------------------------------
+# コンテナ起動コマンドの指定
+# ------------------------------------------------------------------------------
+# JSON 配列形式（exec 形式）で記述する。
+# shell 形式 (ENTRYPOINT "/entrypoint.sh") と異なり、
+# exec 形式ではシグナル (SIGTERM 等) がシェル経由でなく
+# スクリプトプロセスに直接届くため、Vertex AI のジョブ停止が確実に機能する。
 ENTRYPOINT ["/entrypoint.sh"]
