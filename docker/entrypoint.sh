@@ -4,6 +4,7 @@
 #
 # フルワークフロー:
 #   1. GCS からケースファイルをダウンロード
+#   1b. GCS_MESH_SOURCE が指定された場合、polyMesh を GCS から取得
 #   2. polyMesh シンボリックリンク再作成
 #   3. NCORES に応じた decomposeParDict 書き換え
 #   4. MRF simpleFoam (定常収束)
@@ -16,6 +17,9 @@
 #   NCORES              MPI コア数 (デフォルト: 4)
 #   GCS_RESULT_PREFIX   結果の GCS プレフィックス (デフォルト: results)
 #   MRF_END_TIME        MRF 計算の終了イテレーション数 (デフォルト: 3000)
+#   GCS_MESH_SOURCE     メッシュ生成ジョブが出力した polyMesh の GCS パス
+#                       例: gs://bucket/mesh/LK-1_HD0.45_20260414_120000/polyMesh/
+#                       未設定の場合は cases/ に polyMesh が含まれている前提で動作
 #------------------------------------------------------------------------------
 set -euo pipefail
 
@@ -26,6 +30,7 @@ GCS_BUCKET="${GCS_BUCKET:?環境変数 GCS_BUCKET が設定されていません
 NCORES="${NCORES:-4}"
 GCS_RESULT_PREFIX="${GCS_RESULT_PREFIX:-results}"
 MRF_END_TIME="${MRF_END_TIME:-3000}"
+GCS_MESH_SOURCE="${GCS_MESH_SOURCE:-}"
 WORKSPACE="/workspace"
 MRF_DIR="${WORKSPACE}/LK-1_HD0.45_MRF"
 TRANSIENT_DIR="${WORKSPACE}/LK-1_HD0.45"
@@ -47,6 +52,18 @@ gsutil -m cp -r "gs://${GCS_BUCKET}/cases/LK-1_HD0.45"     "${WORKSPACE}/"
 gsutil -m cp -r "gs://${GCS_BUCKET}/cases/LK-1_HD0.45_MRF" "${WORKSPACE}/"
 
 echo "  ダウンロード完了"
+
+# ---------------------------------------------------------------------------
+# Step 1b: polyMesh を GCS から取得（GCS_MESH_SOURCE 指定時）
+# ---------------------------------------------------------------------------
+if [ -n "${GCS_MESH_SOURCE}" ]; then
+    echo ""
+    echo "[Step 1b] polyMesh を GCS から取得: ${GCS_MESH_SOURCE}"
+    mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
+    gsutil -m cp -r "${GCS_MESH_SOURCE%/}/"* \
+        "${TRANSIENT_DIR}/constant/polyMesh/"
+    echo "  polyMesh 取得完了"
+fi
 
 # ---------------------------------------------------------------------------
 # Step 2: OpenFOAM 環境読み込み
