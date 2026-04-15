@@ -29,15 +29,15 @@ if [ -d "${TRANSIENT_CASE}/0" ]; then
 fi
 
 # --- mapFields: 同一メッシュなので -consistent オプションで直接コピー ---
-# 構文: mapFields [OPTIONS] <sourceCase>
+# 構文: mapFields <sourceCase> [OPTIONS]
 #   source = .  (LK-1_HD0.45_MRF, 本スクリプトの実行ディレクトリ)
 #   target = -case $TRANSIENT_CASE  (LK-1_HD0.45)
 echo "Mapping fields from time $LATEST_TIME to ${TRANSIENT_CASE}/0 ..."
 mapFields \
+    . \
     -consistent \
     -sourceTime "$LATEST_TIME" \
-    -case "$TRANSIENT_CASE" \
-    .
+    -case "$TRANSIENT_CASE"
 
 echo "Done. Check ${TRANSIENT_CASE}/0/U to verify non-zero internalField."
 

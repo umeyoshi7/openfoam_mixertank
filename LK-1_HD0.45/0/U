@@ -1,8 +1,8 @@
 /*--------------------------------*- C++ -*----------------------------------*\
 | =========                 |                                                 |
 | \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
-|  \\    /   O peration     | Version:  v2012                                 |
-|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|  \\    /   O peration     | Version:  11                                    |
+|   \\  /    A nd           | Web:      www.openfoam.org                      |
 |    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
 FoamFile
@@ -21,6 +21,11 @@ internalField   uniform (0 0 0);
 
 boundaryField
 {
+    top
+    {
+        type            symmetry;
+    }
+
     reactor_HD0.45
     {
         type            noSlip;

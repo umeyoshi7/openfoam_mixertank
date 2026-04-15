@@ -1,0 +1,27 @@
+# Vertex AI Custom Job - Mesh generation
+#
+# Usage:
+#   gcloud ai custom-jobs create \
+#     --region=asia-northeast1 \
+#     --config=vertex_ai/job_mesh.yaml
+#
+# Edit PROJECT_ID and GCS_BUCKET before running.
+
+displayName: openfoam-mesh
+
+jobSpec:
+  workerPoolSpecs:
+    - machineSpec:
+        machineType: n1-standard-8
+      replicaCount: 1
+      containerSpec:
+        imageUri: asia-northeast1-docker.pkg.dev/<PROJECT_ID>/openfoam/openfoam-mesh:latest
+        env:
+          - name: GCS_BUCKET
+            value: your-openfoam-bucket
+          - name: NCORES
+            value: "8"
+          - name: GCS_MESH_PREFIX
+            value: mesh
+          - name: CASE_NAME
+            value: LK-1_HD0.45

@@ -9,7 +9,8 @@
       "Bash(pip install:*)",
       "Bash(bash:*)",
       "Bash(cmd:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }
