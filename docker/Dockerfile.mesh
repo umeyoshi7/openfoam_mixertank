@@ -1,0 +1,44 @@
+# ==============================================================================
+# OpenFOAM v11 メッシュ生成ジョブ
+# Runs: blockMesh → surfaceFeatureExtract → snappyHexMesh → createBaffles
+# ==============================================================================
+# openfoam.org 公式 Docker イメージ。
+# OpenFOAM v11 が /opt/openfoam11/ にインストール済み。
+FROM openfoam/openfoam11-paraview510
+
+LABEL description="OpenFOAM v11 mesh generation job for Vertex AI Custom Training"
+
+# ------------------------------------------------------------------------------
+# Google Cloud CLI のインストール
+# ------------------------------------------------------------------------------
+# ベースイメージはデフォルトで非 root の openfoam ユーザーで動作するため、
+# apt-get を実行するには USER root への切り替えが必須。
+USER root
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        gnupg \
+        ca-certificates \
+        lsb-release \
+        apt-transport-https \
+    && curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+        | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] \
+        https://packages.cloud.google.com/apt cloud-sdk main" \
+        > /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends google-cloud-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+# Docker コンテナ内で OpenMPI が共有メモリ (vader) を使おうとすると
+# CMA (Cross-Memory Attach) 不可でクラッシュするケースがある。
+# このフラグで vader トランスポートを無効化して回避する。
+ENV OMPI_MCA_btl_vader_single_copy_mechanism=none
+
+WORKDIR /workspace
+
+COPY entrypoint_mesh.sh /entrypoint_mesh.sh
+RUN chmod +x /entrypoint_mesh.sh
+
+ENTRYPOINT ["/entrypoint_mesh.sh"]
