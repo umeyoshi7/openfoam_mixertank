@@ -7,9 +7,12 @@
 #   2. OpenFOAM 環境読み込み
 #   3. blockMesh
 #   4. surfaceFeatureExtract
-#   5. snappyHexMesh（並列）
-#   6. faceZones 存在確認
-#   7. createBaffles
+#   5. 0/ を 0.mesh/ で置換後 decomposePar+snappyHexMesh（並列）
+#        ※ blockMesh は allBoundary+top のみ生成。既存 0/ が reactor/impeller 等を
+#           参照すると decomposePar がパッチ不整合でエラーになり停止するため、
+#           AMI なしの最小 BC セット 0.mesh/ で置換してから実行する。
+#   6. faceZones 存在確認（createBaffles の前提）
+#   7. createBaffles（AMI1/AMI2 パッチ生成）
 #   8. checkMesh
 #   9. polyMesh を GCS へアップロード
 #
@@ -100,6 +103,14 @@ cd "${CASE_DIR}"
 foamDictionary \
     -entry numberOfSubdomains -set "${NCORES}" \
     system/decomposeParDict
+
+# CRITICAL: 0/ を 0.mesh/ で置換してから decomposePar を実行する。
+# blockMesh が生成するパッチ (allBoundary, top) と 0/ が参照するパッチ
+# (reactor_HD0.45, impeller_HD0.45, AMI1, AMI2 等) が不整合を起こし、
+# decomposePar がエラーになって snappyHexMesh が停止する。
+# 0.mesh/ は snappyHexMesh 後のパッチ構成に合わせた最小 BC セット (AMI なし)。
+rm -rf 0/
+cp -r 0.mesh/ 0/
 
 if [ "${NCORES}" -gt 1 ]; then
     decomposePar -force 2>&1 | tee log.decomposePar

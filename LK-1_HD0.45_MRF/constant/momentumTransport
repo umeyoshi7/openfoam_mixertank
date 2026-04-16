@@ -7,28 +7,22 @@
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version     2.0;
     format      ascii;
     class       dictionary;
-    object      dynamicMeshDict;
+    location    "constant";
+    object      momentumTransport;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-mover
+simulationType RAS;
+
+RAS
 {
-    type            motionSolver;
+    model           kEpsilon;
 
-    libs            ("libfvMeshMovers.so" "libfvMotionSolvers.so");
+    turbulence      on;
 
-    motionSolver    solidBody;
-
-    cellZone        rotating;
-
-    solidBodyMotionFunction  rotatingMotion;
-
-    origin          (0 0 0);
-    axis            (0 1 0);
-    omega           -10.47;   // rad/s (negative = clockwise viewed from +Y)
+    printCoeffs     on;
 }
 
 // ************************************************************************* //

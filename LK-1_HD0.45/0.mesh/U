@@ -1,18 +1,21 @@
 /*--------------------------------*- C++ -*----------------------------------*\
-  =========                 |
-  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
-   \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Version:  11
-     \\/     M anipulation  |
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  11                                    |
+|   \\  /    A nd           | Web:      www.openfoam.org                      |
+|    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
     version     2.0;
     format      ascii;
     class       volVectorField;
+    location    "0";
     object      U;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// メッシュ生成フェーズ専用 BC (snappyHexMesh + createBaffles 用)
+// AMI パッチは含めない。createBaffles 後に restore0Dir で 0.orig/ に置換される。
 
 dimensions      [0 1 -1 0 0 0 0];
 
@@ -20,41 +23,30 @@ internalField   uniform (0 0 0);
 
 boundaryField
 {
-    #includeEtc "caseDicts/setConstraintTypes"
-
     top
     {
         type            symmetry;
     }
+
     reactor_HD0.45
     {
         type            noSlip;
     }
-    shaft_HD0.45
-    {
-        type            movingWallVelocity;
-        value           uniform (0 0 0);
-    }
+
     impeller_HD0.45
     {
-        type            movingWallVelocity;
-        value           uniform (0 0 0);
+        type            noSlip;
     }
+
+    shaft_HD0.45
+    {
+        type            noSlip;
+    }
+
     baffle_HD0.45
     {
         type            noSlip;
     }
-    AMI1
-    {
-        type            movingWallSlipVelocity;
-        value           $internalField;
-    }
-    AMI2
-    {
-        type            movingWallSlipVelocity;
-        value           $internalField;
-    }
 }
-
 
 // ************************************************************************* //

@@ -1,8 +1,8 @@
 /*--------------------------------*- C++ -*----------------------------------*\
 | =========                 |                                                 |
 | \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
-|  \\    /   O peration     | Version:  v2012                                 |
-|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|  \\    /   O peration     | Version:  11                                    |
+|   \\  /    A nd           | Web:      www.openfoam.org                      |
 |    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
 FoamFile
@@ -57,13 +57,15 @@ castellatedMeshControls
 {
     maxLocalCells 100000;
 
-    maxGlobalCells 3000000;
+    // Vertex AI 本番: 3000000
+    // ローカルテスト: 300000 (PCメモリ節約)
+    maxGlobalCells 300000;
 
     minRefinementCells 2;
 
     maxLoadUnbalance 0.10;
 
-    nCellsBetweenLevels 4;
+    nCellsBetweenLevels 3;
 
     features
     (
@@ -93,7 +95,7 @@ castellatedMeshControls
     {
         reactor_HD0.45
         {
-            level (2 2);
+            level (1 2);
             patchInfo
             {
                 type wall;
@@ -103,34 +105,39 @@ castellatedMeshControls
 
         impeller_HD0.45
         {
-            level (3 4);
+            // 本番: (3 4), ローカルテスト: (2 3)
+            level (2 3);
             patchInfo
             {
-                ${...reactor_HD0.45.patchInfo}
+                type wall;
+                inGroups (meshedWalls);
             }
         }
 
         shaft_HD0.45
         {
-            level (3 4);
+            // 本番: (3 4), ローカルテスト: (2 3)
+            level (2 3);
             patchInfo
             {
-                ${...reactor_HD0.45.patchInfo}
+                type wall;
+                inGroups (meshedWalls);
             }
         }
 
         baffle_HD0.45
         {
-            level (2 2);
+            level (1 2);
             patchInfo
             {
-                ${...reactor_HD0.45.patchInfo}
+                type wall;
+                inGroups (meshedWalls);
             }
         }
 
         rotation_HD0.45
         {
-            level (2 2);
+            level (1 2);
             cellZone rotating;
             faceZone rotating;
             cellZoneInside insidePoint;

@@ -9,68 +9,43 @@ FoamFile
 {
     version     2.0;
     format      ascii;
-    class       dictionary;
-    object      blockMeshDict;
+    class       volScalarField;
+    location    "0";
+    object      p;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// メッシュ生成フェーズ専用 BC
 
-scale   1;
+dimensions      [0 2 -2 0 0 0 0];
 
-minx    -0.210;
-maxx    0.210;
-miny    -0.080;
-maxy    0.104;
-minz    -0.210;
-maxz    0.210;
+internalField   uniform 0;
 
-nx      60;
-ny      60;
-nz      60;
-
-vertices
-(
-    ($minx $miny $minz)
-    ($maxx $miny $minz)
-    ($maxx $maxy $minz)
-    ($minx $maxy $minz)
-    ($minx $miny $maxz)
-    ($maxx $miny $maxz)
-    ($maxx $maxy $maxz)
-    ($minx $maxy $maxz)
-);
-
-blocks
-(
-    hex (0 1 2 3 4 5 6 7) ($nx $ny $nz) simpleGrading (1 1 1)
-);
-
-edges
-(
-);
-
-boundary
-(
-    allBoundary
-    {
-        type patch;
-        faces
-        (
-            (0 4 7 3)
-            (2 6 5 1)
-            (1 5 4 0)
-            (0 3 2 1)
-            (4 5 6 7)
-        );
-    }
-
+boundaryField
+{
     top
     {
-        type    symmetry;
-        faces
-        (
-            (3 7 6 2)
-        );
+        type            symmetry;
     }
-);
+
+    reactor_HD0.45
+    {
+        type            zeroGradient;
+    }
+
+    impeller_HD0.45
+    {
+        type            zeroGradient;
+    }
+
+    shaft_HD0.45
+    {
+        type            zeroGradient;
+    }
+
+    baffle_HD0.45
+    {
+        type            zeroGradient;
+    }
+}
 
 // ************************************************************************* //

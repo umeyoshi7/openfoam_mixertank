@@ -1,9 +1,9 @@
 /*--------------------------------*- C++ -*----------------------------------*\
-| =========                 |                                                 |
-| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
-|  \\    /   O peration     | Version:  v2012                                 |
-|   \\  /    A nd           | Website:  www.openfoam.com                      |
-|    \\/     M anipulation  |                                                 |
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  11
+     \\/     M anipulation  |
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
@@ -15,44 +15,30 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // Whether to convert internal faces only (so leave boundary faces intact).
-// This is only relevant if your face selection type can pick up boundary
-// faces.
 internalFacesOnly true;
 
-
 // Baffles to create.
+// NOTE (OpenFOAM 11): cyclicAMI は非サポート。
+// createBaffles で patch 型を作成し、後で createNonConformalCouples で NCC に変換する。
 baffles
 {
     rotation_HD0.45
     {
-        //- Use predefined faceZone to select faces and orientation.
         type        faceZone;
         zoneName    rotating;
 
         patches
         {
-            master
+            owner
             {
-                //- Master side patch
                 name            AMI1;
-                type            cyclicAMI;
-                matchTolerance  0.0001;
-                neighbourPatch  AMI2;
-                transform       rotational;
-                rotationAxis    (0 1 0);
-                rotationCentre  (0 0 0);
+                type            patch;
             }
 
-            slave
+            neighbour
             {
-                //- Slave side patch
                 name            AMI2;
-                type            cyclicAMI;
-                matchTolerance  0.0001;
-                neighbourPatch  AMI1;
-                transform       rotational;
-                rotationAxis    (0 1 0);
-                rotationCentre  (0 0 0);
+                type            patch;
             }
         }
     }

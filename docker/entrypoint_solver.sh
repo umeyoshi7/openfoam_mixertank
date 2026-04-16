@@ -155,6 +155,14 @@ echo "  MRF simpleFoam 完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 6b] mapFields: MRF → pimpleFoam"
+
+# pimpleFoam ケースの 0/ を 0.orig/ から復元する。
+# メッシュ生成ジョブで 0/ が 0.mesh/ に置換されたため、ソルバー実行前に
+# AMI パッチを含む正規の初期条件 (0.orig/) を復元する必要がある。
+cd "${TRANSIENT_DIR}"
+restore0Dir
+echo "  pimpleFoam ケース 0/ を restore0Dir (0.orig/) で初期化"
+
 cd "${MRF_DIR}"
 
 # foamListTimes の出力から数値のみ抽出（バナー行・警告行を除去）

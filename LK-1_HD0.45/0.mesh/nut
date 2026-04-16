@@ -1,18 +1,20 @@
 /*--------------------------------*- C++ -*----------------------------------*\
-  =========                 |
-  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
-   \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Version:  11
-     \\/     M anipulation  |
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  11                                    |
+|   \\  /    A nd           | Web:      www.openfoam.org                      |
+|    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
     version     2.0;
     format      ascii;
     class       volScalarField;
+    location    "0";
     object      nut;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// メッシュ生成フェーズ専用 BC
 
 dimensions      [0 2 -1 0 0 0 0];
 
@@ -20,41 +22,34 @@ internalField   uniform 0;
 
 boundaryField
 {
-    #includeEtc "caseDicts/setConstraintTypes"
-
     top
     {
         type            symmetry;
     }
+
     reactor_HD0.45
     {
         type            nutkWallFunction;
-        value           $internalField;
+        value           uniform 0;
     }
-    shaft_HD0.45
-    {
-        type            nutkWallFunction;
-        value           $internalField;
-    }
+
     impeller_HD0.45
     {
         type            nutkWallFunction;
-        value           $internalField;
+        value           uniform 0;
     }
+
+    shaft_HD0.45
+    {
+        type            nutkWallFunction;
+        value           uniform 0;
+    }
+
     baffle_HD0.45
     {
         type            nutkWallFunction;
-        value           $internalField;
-    }
-    AMI1
-    {
-        type            zeroGradient;
-    }
-    AMI2
-    {
-        type            zeroGradient;
+        value           uniform 0;
     }
 }
-
 
 // ************************************************************************* //

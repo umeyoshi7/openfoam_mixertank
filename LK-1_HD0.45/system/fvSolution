@@ -82,6 +82,7 @@ PIMPLE
 {
     momentumPredictor   yes;
     correctPhi          yes;
+    correctMeshPhi      yes;
     nOuterCorrectors    7;
     nCorrectors         4;
     nNonOrthogonalCorrectors 3;

@@ -15,7 +15,9 @@ FoamFile
     object          controlDict;
 }
 
-application     simpleFoam;
+application     foamRun;
+
+solver          incompressibleFluid;
 
 startFrom       startTime;
 
@@ -23,7 +25,8 @@ startTime       0;
 
 stopAt          endTime;
 
-endTime         3000;
+// Vertex AI 本番: 3000, ローカルテスト: 200
+endTime         200;
 
 deltaT          1;
 
@@ -45,16 +48,7 @@ timePrecision   10;
 
 runTimeModifiable yes;
 
-functions
-{
-    residuals
-    {
-        type            solverInfo;
-        libs            ( fieldFunctionObjects );
-        fields          ( U p k epsilon );
-        writeResidualFields no;
-    }
-}
+// functions block removed (solverInfo not available in this OF11 build)
 
 
 // ************************************************************************* //
