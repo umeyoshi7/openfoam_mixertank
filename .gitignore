@@ -1,11 +1,9 @@
 # 環境設定（秘密情報）
 .env
 
-# OpenFOAM 計算結果・タイムディレクトリ
+# OpenFOAM 計算結果・タイムディレクトリ（0/ はランタイム作業ディレクトリのため除外）
 LK-1_HD0.45/[0-9]*/
 LK-1_HD0.45/[0-9].[0-9]*/
-!LK-1_HD0.45/0/
-!LK-1_HD0.45/0/**
 !LK-1_HD0.45/0.orig/
 !LK-1_HD0.45/0.orig/**
 !LK-1_HD0.45/0.mesh/
@@ -15,22 +13,26 @@ LK-1_HD0.45/postProcessing/
 LK-1_HD0.45/log.*
 LK-1_HD0.45/0.backup/
 LK-1_HD0.45_MRF/[0-9]*/
-!LK-1_HD0.45_MRF/0/
-!LK-1_HD0.45_MRF/0/**
 !LK-1_HD0.45_MRF/0.orig/
 !LK-1_HD0.45_MRF/0.orig/**
 LK-1_HD0.45_MRF/processor*/
 LK-1_HD0.45_MRF/postProcessing/
 LK-1_HD0.45_MRF/log.*
 
-# メッシュ実体（大容量）
+# メッシュ実体（メッシュジョブが生成、大容量）
 LK-1_HD0.45/constant/polyMesh/
+LK-1_HD0.45/constant/fvMesh/
+LK-1_HD0.45/constant/extendedFeatureEdgeMesh/
+LK-1_HD0.45/constant/triSurface/*.eMesh
 
 # ダウンロードした計算結果
 results/
 
-# バックアップファイル
+# バックアップファイル・ローカル用ファイル
 *.bak
+*.foam
+LK-1_HD0.45_MRF/mapToTransient.sh
+LK-1_HD0.45/system/mapFieldsDict
 
 # Python
 __pycache__/
