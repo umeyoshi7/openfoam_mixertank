@@ -7,14 +7,12 @@
 #   2. OpenFOAM 環境読み込み
 #   3. blockMesh
 #   4. surfaceFeatureExtract
-#   5. 0/ を 0.mesh/ で置換後 decomposePar+snappyHexMesh（並列）
-#        ※ blockMesh は allBoundary+top のみ生成。既存 0/ が reactor/impeller 等を
-#           参照すると decomposePar がパッチ不整合でエラーになり停止するため、
-#           AMI なしの最小 BC セット 0.mesh/ で置換してから実行する。
+#   5. 0/ を 0.mesh/ で置換後 decomposePar+snappyHexMesh（並列）+reconstructPar
 #   6. faceZones 存在確認（createBaffles の前提）
 #   7. createBaffles（AMI1/AMI2 パッチ生成）
-#   8. checkMesh
-#   9. polyMesh を GCS へアップロード
+#   8. createNonConformalCouples（AMI1/AMI2 → NCC 変換）
+#   9. checkMesh
+#  10. fvMesh を GCS へアップロード
 #
 # 環境変数:
 #   GCS_BUCKET        GCS バケット名 (必須)
@@ -55,25 +53,23 @@ echo "  ダウンロード完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 2] OpenFOAM 環境読み込み"
-# OpenFOAM bashrc は内部で未設定変数を参照したり非ゼロ終了するコマンドを含むため、
-# source 中だけ厳格モードを一時解除する。
+# OpenFOAM bashrc は内部で未設定変数を参照したり非ゼロ終了するコマンドを含む。
+# source 中だけ厳格モードを一時解除し、true で $? をリセットしてから再有効化する。
 set +euo pipefail
 # shellcheck disable=SC1091
 source /opt/openfoam11/etc/bashrc
+true  # $? を 0 にリセットしてから set -e を再有効化
 set -euo pipefail
 
-# WM_PROJECT_VERSION の確認 (set -u のもとで未設定なら即終了するため明示チェック)
 if [ -z "${WM_PROJECT_VERSION:-}" ]; then
     echo "ERROR: OpenFOAM 環境の読み込みに失敗しました (WM_PROJECT_VERSION が未設定)"
     exit 1
 fi
 echo "  OpenFOAM: ${WM_PROJECT}-${WM_PROJECT_VERSION}"
 
-# RunFunctions を明示的にロード (bashrc は環境変数のみセット、restore0Dir 等は含まない)
 # shellcheck disable=SC1091
 . "${WM_PROJECT_DIR}/bin/tools/RunFunctions"
 
-# RunFunctions (restore0Dir 等) の可用性確認
 if ! type restore0Dir > /dev/null 2>&1; then
     echo "ERROR: restore0Dir が使用できません (RunFunctions が未ロード)"
     exit 1
@@ -87,8 +83,8 @@ echo "[Step 3] blockMesh 実行"
 cd "${CASE_DIR}"
 blockMesh 2>&1 | tee log.blockMesh
 
-if [ ! -f "constant/polyMesh/faces" ]; then
-    echo "ERROR: blockMesh が constant/polyMesh/faces を生成しませんでした"
+if [ ! -f "constant/fvMesh/faces" ]; then
+    echo "ERROR: blockMesh が constant/fvMesh/faces を生成しませんでした"
     exit 1
 fi
 echo "  blockMesh 完了"
@@ -103,7 +99,7 @@ surfaceFeatureExtract 2>&1 | tee log.surfaceFeatureExtract
 echo "  surfaceFeatureExtract 完了"
 
 # ---------------------------------------------------------------------------
-# Step 5: snappyHexMesh（並列対応）
+# Step 5: snappyHexMesh（並列）
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 5] snappyHexMesh 実行 (NCORES=${NCORES})"
@@ -112,41 +108,45 @@ foamDictionary \
     -entry numberOfSubdomains -set "${NCORES}" \
     system/decomposeParDict
 
-# CRITICAL: 0/ を 0.mesh/ で置換してから decomposePar を実行する。
-# blockMesh が生成するパッチ (allBoundary, top) と 0/ が参照するパッチ
-# (reactor_HD0.45, impeller_HD0.45, AMI1, AMI2 等) が不整合を起こし、
-# decomposePar がエラーになって snappyHexMesh が停止する。
-# 0.mesh/ は snappyHexMesh 後のパッチ構成に合わせた最小 BC セット (AMI なし)。
+# CRITICAL: decomposePar の前に 0/ を 0.mesh/ で置換する。
+# blockMesh が生成するパッチ (allBoundary, top) と 0/ のパッチ
+# (reactor, impeller, AMI1, AMI2 等) が不整合を起こし decomposePar が
+# エラーになるため、AMI なしの最小 BC セット 0.mesh/ を使用する。
 rm -rf 0/
 cp -r 0.mesh/ 0/
 
-if [ "${NCORES}" -gt 1 ]; then
-    decomposePar -force 2>&1 | tee log.decomposePar
-    # --oversubscribe: Vertex AI の VM で OpenMPI スロット不足エラーを回避
-    mpirun --allow-run-as-root --oversubscribe -np "${NCORES}" \
-        snappyHexMesh -parallel -overwrite 2>&1 | tee log.snappyHexMesh
-    # -constant: メッシュを constant/polyMesh/ に再構築
-    reconstructParMesh -constant 2>&1 | tee log.reconstructParMesh
-    # フォールバック: -overwrite でも faceZones がプロセッサの時刻ディレクトリに
-    # 書かれ reconstructParMesh -constant に含まれないケースへの対処。
-    # processor[0-9]* を削除する前にここで取得する。
-    if [ ! -f "constant/polyMesh/faceZones" ]; then
-        PROC_ZONE=$(ls processor0/[0-9]*/polyMesh/faceZones 2>/dev/null | tail -1)
+decomposePar -force 2>&1 | tee log.decomposePar
+# --oversubscribe: Vertex AI の VM で OpenMPI スロット不足エラーを回避
+mpirun --allow-run-as-root --oversubscribe -np "${NCORES}" \
+    snappyHexMesh -parallel -overwrite 2>&1 | tee log.snappyHexMesh
+
+# OF11 では reconstructPar -constant で constant/fvMesh/ にメッシュを再構築
+reconstructPar -constant 2>&1 | tee log.reconstructPar
+
+# faceZones フォールバック: reconstructPar が faceZones を含まないケースに対応
+if [ ! -f "constant/fvMesh/faceZones" ]; then
+    echo "  reconstructPar 後に faceZones が見当たらない、フォールバックを試みます..."
+    # Fallback 1: processor0/constant/fvMesh (-overwrite で直接書き込まれた場合)
+    if [ -f "processor0/constant/fvMesh/faceZones" ]; then
+        echo "  processor0/constant/fvMesh/ からコピー"
+        cp "processor0/constant/fvMesh/faceZones" "constant/fvMesh/"
+        [ -f "processor0/constant/fvMesh/cellZones" ] && \
+            cp "processor0/constant/fvMesh/cellZones" "constant/fvMesh/"
+    fi
+    # Fallback 2: タイムディレクトリに書かれた場合
+    if [ ! -f "constant/fvMesh/faceZones" ]; then
+        PROC_ZONE=$(ls processor0/[0-9]*/fvMesh/faceZones 2>/dev/null | tail -1)
         if [ -n "${PROC_ZONE}" ]; then
             ZONE_TIME=$(echo "${PROC_ZONE}" | cut -d'/' -f2)
-            echo "  faceZones をタイム '${ZONE_TIME}' から再構築します..."
-            reconstructParMesh -time "${ZONE_TIME}" 2>&1 | tee -a log.reconstructParMesh
-            [ -f "${ZONE_TIME}/polyMesh/faceZones" ] && \
-                cp "${ZONE_TIME}/polyMesh/faceZones" constant/polyMesh/
-            [ -f "${ZONE_TIME}/polyMesh/cellZones" ] && \
-                cp "${ZONE_TIME}/polyMesh/cellZones" constant/polyMesh/
-            rm -rf "${ZONE_TIME}"
+            echo "  processor0/${ZONE_TIME}/fvMesh/ からコピー (time=${ZONE_TIME})"
+            cp "processor0/${ZONE_TIME}/fvMesh/faceZones" "constant/fvMesh/"
+            [ -f "processor0/${ZONE_TIME}/fvMesh/cellZones" ] && \
+                cp "processor0/${ZONE_TIME}/fvMesh/cellZones" "constant/fvMesh/"
         fi
     fi
-    rm -rf processor[0-9]*
-else
-    snappyHexMesh -overwrite 2>&1 | tee log.snappyHexMesh
 fi
+
+rm -rf processor[0-9]*
 echo "  snappyHexMesh 完了"
 
 # ---------------------------------------------------------------------------
@@ -154,8 +154,8 @@ echo "  snappyHexMesh 完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 6] faceZones 存在確認"
-if [ ! -f "constant/polyMesh/faceZones" ]; then
-    echo "ERROR: constant/polyMesh/faceZones が存在しません"
+if [ ! -f "constant/fvMesh/faceZones" ]; then
+    echo "ERROR: constant/fvMesh/faceZones が存在しません"
     echo "  snappyHexMesh が rotating faceZone を生成しなかった可能性があります"
     echo "  log.snappyHexMesh で 'rotating' faceZone の作成ログを確認してください"
     exit 1
@@ -163,7 +163,7 @@ fi
 echo "  faceZones 確認 OK"
 
 # ---------------------------------------------------------------------------
-# Step 7: createBaffles（AMI パッチ生成）
+# Step 7: createBaffles（AMI1/AMI2 パッチ生成）
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 7] createBaffles 実行"
@@ -172,41 +172,46 @@ createBaffles -overwrite 2>&1 | tee log.createBaffles
 echo "  createBaffles 完了"
 
 # ---------------------------------------------------------------------------
-# Step 8: checkMesh（メッシュ品質検証）
+# Step 8: createNonConformalCouples（AMI1/AMI2 → NCC 変換）
 # ---------------------------------------------------------------------------
 echo ""
-echo "[Step 8] checkMesh 実行"
+echo "[Step 8] createNonConformalCouples 実行"
+cd "${CASE_DIR}"
+createNonConformalCouples -overwrite AMI1 AMI2 2>&1 | tee log.createNonConformalCouples
+echo "  createNonConformalCouples 完了"
+
+# ---------------------------------------------------------------------------
+# Step 9: checkMesh（メッシュ品質検証）
+# ---------------------------------------------------------------------------
+echo ""
+echo "[Step 9] checkMesh 実行"
 cd "${CASE_DIR}"
 checkMesh 2>&1 | tee log.checkMesh
 
 if grep -q "FAILED" log.checkMesh; then
     echo "ERROR: checkMesh が FAILED を報告しました。メッシュ品質を確認してください"
-    echo "  log.checkMesh の内容:"
     grep -A2 "FAILED" log.checkMesh
     exit 1
 fi
 echo "  checkMesh 完了（問題なし）"
 
 # ---------------------------------------------------------------------------
-# Step 9: polyMesh を GCS へアップロード
+# Step 10: fvMesh を GCS へアップロード
 # ---------------------------------------------------------------------------
 echo ""
-echo "[Step 9] polyMesh を GCS へアップロード"
+echo "[Step 10] fvMesh を GCS へアップロード"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-GCS_MESH_DEST="gs://${GCS_BUCKET}/${GCS_MESH_PREFIX}/polyMesh_${TIMESTAMP}"
+GCS_MESH_DEST="gs://${GCS_BUCKET}/${GCS_MESH_PREFIX}/fvMesh_${TIMESTAMP}"
 echo "  宛先: ${GCS_MESH_DEST}/"
 
-# polyMesh ディレクトリのみアップロード（ケース全体は不要）
 gsutil -m cp -r \
-    "${CASE_DIR}/constant/polyMesh/" \
+    "${CASE_DIR}/constant/fvMesh/" \
     "${GCS_MESH_DEST}/"
 
-# メッシュ生成ログをアップロード（デバッグ用）
 gsutil -m cp \
     "${CASE_DIR}/log."* \
     "${GCS_MESH_DEST}/logs/" 2>/dev/null || true
 
-# 最新メッシュパスを記録（ソルバージョブが GCS_MESH_PATH 未指定時に参照）
 printf '%s/\n' "${GCS_MESH_DEST}" | gsutil cp - \
     "gs://${GCS_BUCKET}/${GCS_MESH_PREFIX}/latest.txt"
 
