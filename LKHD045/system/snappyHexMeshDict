@@ -70,23 +70,23 @@ castellatedMeshControls
     features
     (
         {
-           file "reactor_HD0.45.eMesh";
+           file "reactor_HD0.45.extendedFeatureEdgeMesh";
            levels ((1 1));
         }
         {
-           file "impeller_HD0.45.eMesh";
+           file "impeller_HD0.45.extendedFeatureEdgeMesh";
            levels ((1 1));
         }
         {
-           file "baffle_HD0.45.eMesh";
+           file "baffle_HD0.45.extendedFeatureEdgeMesh";
            levels ((1 1));
         }
         {
-           file "shaft_HD0.45.eMesh";
+           file "shaft_HD0.45.extendedFeatureEdgeMesh";
            levels ((1 1));
         }
         {
-           file "rotation_HD0.45.eMesh";
+           file "rotation_HD0.45.extendedFeatureEdgeMesh";
            levels ((1 1));
         }
     );
