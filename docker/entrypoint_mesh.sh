@@ -73,8 +73,13 @@ echo "  OpenFOAM: ${WM_PROJECT}-${WM_PROJECT_VERSION}"
 . "${WM_PROJECT_DIR}/bin/tools/RunFunctions"
 
 if ! type restore0Dir > /dev/null 2>&1; then
-    echo "ERROR: restore0Dir が使用できません (RunFunctions が未ロード)"
-    exit 1
+    restore0Dir() {
+        if [ -d 0.orig ]; then
+            rm -rf 0
+            cp -r 0.orig 0
+        fi
+    }
+    echo "  restore0Dir: RunFunctions に未定義のためフォールバック関数を使用"
 fi
 
 # ---------------------------------------------------------------------------
