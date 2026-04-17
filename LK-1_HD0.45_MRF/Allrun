@@ -4,8 +4,8 @@ cd "${0%/*}" || exit 1   # run from this directory
 . ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions
 
 # polyMesh をシンボリックリンクで参照
-if [ ! -e constant/polyMesh ]; then
-    ln -s ../../LK-1_HD0.45/constant/polyMesh constant/polyMesh
+if [ ! -e constant/fvMesh ]; then
+    ln -s ../../LK-1_HD0.45/constant/fvMesh constant/fvMesh
 fi
 
 restore0Dir

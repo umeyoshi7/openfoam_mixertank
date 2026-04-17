@@ -55,8 +55,12 @@ echo "  ダウンロード完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 2] OpenFOAM 環境読み込み"
+# OpenFOAM bashrc は内部で未設定変数を参照したり非ゼロ終了するコマンドを含むため、
+# source 中だけ厳格モードを一時解除する。
+set +euo pipefail
 # shellcheck disable=SC1091
 source /opt/openfoam11/etc/bashrc
+set -euo pipefail
 
 # WM_PROJECT_VERSION の確認 (set -u のもとで未設定なら即終了するため明示チェック)
 if [ -z "${WM_PROJECT_VERSION:-}" ]; then
@@ -64,6 +68,10 @@ if [ -z "${WM_PROJECT_VERSION:-}" ]; then
     exit 1
 fi
 echo "  OpenFOAM: ${WM_PROJECT}-${WM_PROJECT_VERSION}"
+
+# RunFunctions を明示的にロード (bashrc は環境変数のみセット、restore0Dir 等は含まない)
+# shellcheck disable=SC1091
+. "${WM_PROJECT_DIR}/bin/tools/RunFunctions"
 
 # RunFunctions (restore0Dir 等) の可用性確認
 if ! type restore0Dir > /dev/null 2>&1; then
@@ -117,9 +125,24 @@ if [ "${NCORES}" -gt 1 ]; then
     # --oversubscribe: Vertex AI の VM で OpenMPI スロット不足エラーを回避
     mpirun --allow-run-as-root --oversubscribe -np "${NCORES}" \
         snappyHexMesh -parallel -overwrite 2>&1 | tee log.snappyHexMesh
-    # -constant: cellZones/faceZones を constant/polyMesh/ に書き込む
-    #   (このフラグなしだと 0/ に書かれ createBaffles が失敗する)
+    # -constant: メッシュを constant/polyMesh/ に再構築
     reconstructParMesh -constant 2>&1 | tee log.reconstructParMesh
+    # フォールバック: -overwrite でも faceZones がプロセッサの時刻ディレクトリに
+    # 書かれ reconstructParMesh -constant に含まれないケースへの対処。
+    # processor[0-9]* を削除する前にここで取得する。
+    if [ ! -f "constant/polyMesh/faceZones" ]; then
+        PROC_ZONE=$(ls processor0/[0-9]*/polyMesh/faceZones 2>/dev/null | tail -1)
+        if [ -n "${PROC_ZONE}" ]; then
+            ZONE_TIME=$(echo "${PROC_ZONE}" | cut -d'/' -f2)
+            echo "  faceZones をタイム '${ZONE_TIME}' から再構築します..."
+            reconstructParMesh -time "${ZONE_TIME}" 2>&1 | tee -a log.reconstructParMesh
+            [ -f "${ZONE_TIME}/polyMesh/faceZones" ] && \
+                cp "${ZONE_TIME}/polyMesh/faceZones" constant/polyMesh/
+            [ -f "${ZONE_TIME}/polyMesh/cellZones" ] && \
+                cp "${ZONE_TIME}/polyMesh/cellZones" constant/polyMesh/
+            rm -rf "${ZONE_TIME}"
+        fi
+    fi
     rm -rf processor[0-9]*
 else
     snappyHexMesh -overwrite 2>&1 | tee log.snappyHexMesh
@@ -134,7 +157,7 @@ echo "[Step 6] faceZones 存在確認"
 if [ ! -f "constant/polyMesh/faceZones" ]; then
     echo "ERROR: constant/polyMesh/faceZones が存在しません"
     echo "  snappyHexMesh が rotating faceZone を生成しなかった可能性があります"
-    echo "  snappyHexMeshDict の addLayers/refinementSurfaces の設定を確認してください"
+    echo "  log.snappyHexMesh で 'rotating' faceZone の作成ログを確認してください"
     exit 1
 fi
 echo "  faceZones 確認 OK"
