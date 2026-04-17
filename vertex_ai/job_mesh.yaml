@@ -24,4 +24,4 @@ jobSpec:
           - name: GCS_MESH_PREFIX
             value: mesh
           - name: CASE_NAME
-            value: LK-1_HD0.45
+            value: LKHD045

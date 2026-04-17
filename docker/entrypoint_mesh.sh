@@ -18,7 +18,7 @@
 #   GCS_BUCKET        GCS バケット名 (必須)
 #   NCORES            MPI コア数 (デフォルト: 4)
 #   GCS_MESH_PREFIX   メッシュ出力先プレフィックス (デフォルト: mesh)
-#   CASE_NAME         ケース名 (デフォルト: LK-1_HD0.45)
+#   CASE_NAME         ケース名 (デフォルト: LKHD045)
 #------------------------------------------------------------------------------
 set -euo pipefail
 
@@ -28,7 +28,7 @@ set -euo pipefail
 GCS_BUCKET="${GCS_BUCKET:?ERROR: 環境変数 GCS_BUCKET が設定されていません}"
 NCORES="${NCORES:-4}"
 GCS_MESH_PREFIX="${GCS_MESH_PREFIX:-mesh}"
-CASE_NAME="${CASE_NAME:-LK-1_HD0.45}"
+CASE_NAME="${CASE_NAME:-LKHD045}"
 WORKSPACE="/workspace"
 CASE_DIR="${WORKSPACE}/${CASE_NAME}"
 

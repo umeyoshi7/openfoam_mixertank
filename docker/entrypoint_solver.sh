@@ -33,8 +33,8 @@ GCS_RESULT_PREFIX="${GCS_RESULT_PREFIX:-results}"
 MRF_END_TIME="${MRF_END_TIME:-3000}"
 GCS_MESH_PATH="${GCS_MESH_PATH:-}"   # 省略時は mesh/latest.txt から取得
 WORKSPACE="/workspace"
-MRF_DIR="${WORKSPACE}/LK-1_HD0.45_MRF"
-TRANSIENT_DIR="${WORKSPACE}/LK-1_HD0.45"
+MRF_DIR="${WORKSPACE}/LKHD045MRF"
+TRANSIENT_DIR="${WORKSPACE}/LKHD045"
 
 echo "========================================"
 echo "  OpenFOAM Solver Job"
@@ -49,8 +49,8 @@ echo "========================================"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 1] GCS からケースファイルをダウンロード"
-gsutil -m cp -r "gs://${GCS_BUCKET}/cases/LK-1_HD0.45"     "${WORKSPACE}/"
-gsutil -m cp -r "gs://${GCS_BUCKET}/cases/LK-1_HD0.45_MRF" "${WORKSPACE}/"
+gsutil -m cp -r "gs://${GCS_BUCKET}/cases/LKHD045"     "${WORKSPACE}/"
+gsutil -m cp -r "gs://${GCS_BUCKET}/cases/LKHD045MRF" "${WORKSPACE}/"
 echo "  ダウンロード完了"
 
 # ---------------------------------------------------------------------------
@@ -122,8 +122,8 @@ mkdir -p "${MRF_DIR}/constant"
 # GCS はシンボリックリンクを保存できないため、ダウンロード後に必ず再作成する。
 # polyMesh: メッシュ本体
 rm -rf "${MRF_DIR}/constant/polyMesh"
-ln -sf "../../LK-1_HD0.45/constant/polyMesh" "${MRF_DIR}/constant/polyMesh"
-echo "  ${MRF_DIR}/constant/polyMesh -> ../../LK-1_HD0.45/constant/polyMesh"
+ln -sf "../../LKHD045/constant/polyMesh" "${MRF_DIR}/constant/polyMesh"
+echo "  ${MRF_DIR}/constant/polyMesh -> ../../LKHD045/constant/polyMesh"
 
 if [ ! -f "${MRF_DIR}/constant/polyMesh/faces" ]; then
     echo "ERROR: polyMesh シンボリックリンクが正しく解決されません"
@@ -133,8 +133,8 @@ fi
 # fvMesh: NCC スティッチャー用データ（NCC パッチがあれば必要）
 if [ -d "${TRANSIENT_DIR}/constant/fvMesh" ]; then
     rm -rf "${MRF_DIR}/constant/fvMesh"
-    ln -sf "../../LK-1_HD0.45/constant/fvMesh" "${MRF_DIR}/constant/fvMesh"
-    echo "  ${MRF_DIR}/constant/fvMesh -> ../../LK-1_HD0.45/constant/fvMesh"
+    ln -sf "../../LKHD045/constant/fvMesh" "${MRF_DIR}/constant/fvMesh"
+    echo "  ${MRF_DIR}/constant/fvMesh -> ../../LKHD045/constant/fvMesh"
 fi
 
 echo "  シンボリックリンク確認 OK"
@@ -277,7 +277,7 @@ echo "  foamRun (transient) 完了 (exit: ${TRANSIENT_EXIT})"
 echo ""
 echo "[Step 7] 結果を GCS へアップロード"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-GCS_DEST="gs://${GCS_BUCKET}/${GCS_RESULT_PREFIX}/LK-1_HD0.45_${TIMESTAMP}"
+GCS_DEST="gs://${GCS_BUCKET}/${GCS_RESULT_PREFIX}/LKHD045_${TIMESTAMP}"
 echo "  宛先: ${GCS_DEST}/"
 
 # processor* ディレクトリは除外（reconstructPar 済み）

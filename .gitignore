@@ -2,28 +2,30 @@
 .env
 
 # OpenFOAM 計算結果・タイムディレクトリ（0/ はランタイム作業ディレクトリのため除外）
-LK-1_HD0.45/[0-9]*/
-LK-1_HD0.45/[0-9].[0-9]*/
-!LK-1_HD0.45/0.orig/
-!LK-1_HD0.45/0.orig/**
-!LK-1_HD0.45/0.mesh/
-!LK-1_HD0.45/0.mesh/**
-LK-1_HD0.45/processor*/
-LK-1_HD0.45/postProcessing/
-LK-1_HD0.45/log.*
-LK-1_HD0.45/0.backup/
-LK-1_HD0.45_MRF/[0-9]*/
-!LK-1_HD0.45_MRF/0.orig/
-!LK-1_HD0.45_MRF/0.orig/**
-LK-1_HD0.45_MRF/processor*/
-LK-1_HD0.45_MRF/postProcessing/
-LK-1_HD0.45_MRF/log.*
+LKHD045/[0-9]*/
+LKHD045/[0-9].[0-9]*/
+!LKHD045/0.orig/
+!LKHD045/0.orig/**
+!LKHD045/0.mesh/
+!LKHD045/0.mesh/**
+LKHD045/processor*/
+LKHD045/postProcessing/
+LKHD045/log.*
+LKHD045/0.backup/
+LKHD045MRF/[0-9]*/
+!LKHD045MRF/0.orig/
+!LKHD045MRF/0.orig/**
+LKHD045MRF/processor*/
+LKHD045MRF/postProcessing/
+LKHD045MRF/log.*
 
 # メッシュ実体（メッシュジョブが生成、大容量）
-LK-1_HD0.45/constant/polyMesh/
-LK-1_HD0.45/constant/fvMesh/
-LK-1_HD0.45/constant/extendedFeatureEdgeMesh/
-LK-1_HD0.45/constant/triSurface/*.eMesh
+LKHD045/constant/polyMesh/
+LKHD045/constant/fvMesh/
+LKHD045/constant/extendedFeatureEdgeMesh/
+LKHD045/constant/triSurface/*.eMesh
+# MRF ケースの polyMesh はランタイムシンボリックリンクのため追跡しない
+LKHD045MRF/constant/polyMesh
 
 # ダウンロードした計算結果
 results/
@@ -31,8 +33,8 @@ results/
 # バックアップファイル・ローカル用ファイル
 *.bak
 *.foam
-LK-1_HD0.45_MRF/mapToTransient.sh
-LK-1_HD0.45/system/mapFieldsDict
+LKHD045MRF/mapToTransient.sh
+LKHD045/system/mapFieldsDict
 
 # Python
 __pycache__/
