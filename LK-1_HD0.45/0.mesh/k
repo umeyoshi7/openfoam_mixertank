@@ -22,6 +22,12 @@ internalField   uniform 1e-3;
 
 boundaryField
 {
+    allBoundary
+    {
+        type            kqRWallFunction;
+        value           uniform 1e-3;
+    }
+
     top
     {
         type            symmetry;

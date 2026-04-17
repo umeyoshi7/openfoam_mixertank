@@ -55,8 +55,12 @@ echo "  ダウンロード完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 2] OpenFOAM 環境読み込み"
+# OpenFOAM bashrc は内部で未設定変数を参照したり非ゼロ終了するコマンドを含むため、
+# source 中だけ厳格モードを一時解除する。
+set +euo pipefail
 # shellcheck disable=SC1091
 source /opt/openfoam11/etc/bashrc
+set -euo pipefail
 
 # WM_PROJECT_VERSION の確認 (set -u のもとで未設定なら即終了するため明示チェック)
 if [ -z "${WM_PROJECT_VERSION:-}" ]; then
