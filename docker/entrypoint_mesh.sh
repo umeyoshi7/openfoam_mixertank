@@ -87,8 +87,8 @@ echo "[Step 3] blockMesh 実行"
 cd "${CASE_DIR}"
 blockMesh 2>&1 | tee log.blockMesh
 
-if [ ! -f "constant/polyMesh/faces" ]; then
-    echo "ERROR: blockMesh が constant/polyMesh/faces を生成しませんでした"
+if [ ! -f "constant/fvMesh/faces" ]; then
+    echo "ERROR: blockMesh が constant/fvMesh/faces を生成しませんでした"
     exit 1
 fi
 echo "  blockMesh 完了"
@@ -125,7 +125,7 @@ if [ "${NCORES}" -gt 1 ]; then
     # --oversubscribe: Vertex AI の VM で OpenMPI スロット不足エラーを回避
     mpirun --allow-run-as-root --oversubscribe -np "${NCORES}" \
         snappyHexMesh -parallel -overwrite 2>&1 | tee log.snappyHexMesh
-    # -constant: cellZones/faceZones を constant/polyMesh/ に書き込む
+    # -constant: cellZones/faceZones を constant/fvMesh/ に書き込む
     #   (このフラグなしだと 0/ に書かれ createBaffles が失敗する)
     reconstructParMesh -constant 2>&1 | tee log.reconstructParMesh
     rm -rf processor[0-9]*
@@ -139,8 +139,8 @@ echo "  snappyHexMesh 完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 6] faceZones 存在確認"
-if [ ! -f "constant/polyMesh/faceZones" ]; then
-    echo "ERROR: constant/polyMesh/faceZones が存在しません"
+if [ ! -f "constant/fvMesh/faceZones" ]; then
+    echo "ERROR: constant/fvMesh/faceZones が存在しません"
     echo "  snappyHexMesh が rotating faceZone を生成しなかった可能性があります"
     echo "  snappyHexMeshDict の addLayers/refinementSurfaces の設定を確認してください"
     exit 1
@@ -173,17 +173,17 @@ fi
 echo "  checkMesh 完了（問題なし）"
 
 # ---------------------------------------------------------------------------
-# Step 9: polyMesh を GCS へアップロード
+# Step 9: fvMesh を GCS へアップロード
 # ---------------------------------------------------------------------------
 echo ""
-echo "[Step 9] polyMesh を GCS へアップロード"
+echo "[Step 9] fvMesh を GCS へアップロード"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-GCS_MESH_DEST="gs://${GCS_BUCKET}/${GCS_MESH_PREFIX}/polyMesh_${TIMESTAMP}"
+GCS_MESH_DEST="gs://${GCS_BUCKET}/${GCS_MESH_PREFIX}/fvMesh_${TIMESTAMP}"
 echo "  宛先: ${GCS_MESH_DEST}/"
 
-# polyMesh ディレクトリのみアップロード（ケース全体は不要）
+# fvMesh ディレクトリのみアップロード（ケース全体は不要）
 gsutil -m cp -r \
-    "${CASE_DIR}/constant/polyMesh/" \
+    "${CASE_DIR}/constant/fvMesh/" \
     "${GCS_MESH_DEST}/"
 
 # メッシュ生成ログをアップロード（デバッグ用）

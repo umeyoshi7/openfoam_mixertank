@@ -44,8 +44,8 @@ cp -r 0.mesh/ 0/
 runApplication snappyHexMesh -overwrite
 
 # faceZones 確認 (createBaffles の前提)
-if [ ! -f constant/polyMesh/faceZones ]; then
-    echo "ERROR: constant/polyMesh/faceZones が存在しません"
+if [ ! -f constant/fvMesh/faceZones ]; then
+    echo "ERROR: constant/fvMesh/faceZones が存在しません"
     exit 1
 fi
 echo "  faceZones 確認 OK"
@@ -75,9 +75,9 @@ echo "======================================================"
 cd LK-1_HD0.45_MRF
 
 # polyMesh シンボリックリンク作成（未作成の場合）
-if [ ! -e constant/polyMesh ]; then
-    ln -sf ../../LK-1_HD0.45/constant/polyMesh constant/polyMesh
-    echo "  Created symlink: constant/polyMesh"
+if [ ! -e constant/fvMesh ]; then
+    ln -sf ../../LK-1_HD0.45/constant/fvMesh constant/fvMesh
+    echo "  Created symlink: constant/fvMesh"
 fi
 
 # 0/ を MRF 用 0.orig/ で初期化

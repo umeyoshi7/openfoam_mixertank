@@ -23,7 +23,7 @@ cd ..
 echo "=== Cleaning LK-1_HD0.45_MRF ==="
 cd LK-1_HD0.45_MRF
 cleanCase
-rm -f constant/polyMesh
+rm -f constant/polyMesh constant/fvMesh
 rm -rf processor* log.*
 # 0/ を 0.orig/ から復元
 rm -rf 0/
