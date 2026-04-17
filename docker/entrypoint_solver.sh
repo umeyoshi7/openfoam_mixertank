@@ -58,13 +58,15 @@ echo "  ダウンロード完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 2] OpenFOAM 環境読み込み"
-# OpenFOAM bashrc は内部で未設定変数を参照したり非ゼロ終了するコマンドを含む。
-# source 中だけ厳格モードを一時解除し、true で $? をリセットしてから再有効化する。
-set +euo pipefail
+# OpenFOAM bashrc は未設定変数の参照や非ゼロ終了を含むため、
+# -e（エラー終了）と -u（未定義変数）のみ一時解除する。
+# pipefail は無効化しない（-e が OFF の間は pipefail の有無は動作に影響しない）。
+# BASHRC_EXIT=$? で $? を 0 にリセットしてから strict mode を再有効化する。
+set +eu
 # shellcheck disable=SC1091
 source /opt/openfoam11/etc/bashrc
-true  # $? を 0 にリセットしてから set -e を再有効化
-set -euo pipefail
+BASHRC_EXIT=$?
+set -eu
 
 if [ -z "${WM_PROJECT_VERSION:-}" ]; then
     echo "ERROR: OpenFOAM 環境の読み込みに失敗しました (WM_PROJECT_VERSION が未設定)"
