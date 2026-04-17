@@ -87,8 +87,8 @@ echo "[Step 3] blockMesh 実行"
 cd "${CASE_DIR}"
 blockMesh 2>&1 | tee log.blockMesh
 
-if [ ! -f "constant/fvMesh/faces" ]; then
-    echo "ERROR: blockMesh が constant/fvMesh/faces を生成しませんでした"
+if [ ! -f "constant/polyMesh/faces" ]; then
+    echo "ERROR: blockMesh が constant/polyMesh/faces を生成しませんでした"
     exit 1
 fi
 echo "  blockMesh 完了"
@@ -125,9 +125,24 @@ if [ "${NCORES}" -gt 1 ]; then
     # --oversubscribe: Vertex AI の VM で OpenMPI スロット不足エラーを回避
     mpirun --allow-run-as-root --oversubscribe -np "${NCORES}" \
         snappyHexMesh -parallel -overwrite 2>&1 | tee log.snappyHexMesh
-    # -constant: cellZones/faceZones を constant/fvMesh/ に書き込む
-    #   (このフラグなしだと 0/ に書かれ createBaffles が失敗する)
+    # -constant: メッシュを constant/polyMesh/ に再構築
     reconstructParMesh -constant 2>&1 | tee log.reconstructParMesh
+    # フォールバック: -overwrite でも faceZones がプロセッサの時刻ディレクトリに
+    # 書かれ reconstructParMesh -constant に含まれないケースへの対処。
+    # processor[0-9]* を削除する前にここで取得する。
+    if [ ! -f "constant/polyMesh/faceZones" ]; then
+        PROC_ZONE=$(ls processor0/[0-9]*/polyMesh/faceZones 2>/dev/null | tail -1)
+        if [ -n "${PROC_ZONE}" ]; then
+            ZONE_TIME=$(echo "${PROC_ZONE}" | cut -d'/' -f2)
+            echo "  faceZones をタイム '${ZONE_TIME}' から再構築します..."
+            reconstructParMesh -time "${ZONE_TIME}" 2>&1 | tee -a log.reconstructParMesh
+            [ -f "${ZONE_TIME}/polyMesh/faceZones" ] && \
+                cp "${ZONE_TIME}/polyMesh/faceZones" constant/polyMesh/
+            [ -f "${ZONE_TIME}/polyMesh/cellZones" ] && \
+                cp "${ZONE_TIME}/polyMesh/cellZones" constant/polyMesh/
+            rm -rf "${ZONE_TIME}"
+        fi
+    fi
     rm -rf processor[0-9]*
 else
     snappyHexMesh -overwrite 2>&1 | tee log.snappyHexMesh
@@ -139,10 +154,10 @@ echo "  snappyHexMesh 完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 6] faceZones 存在確認"
-if [ ! -f "constant/fvMesh/faceZones" ]; then
-    echo "ERROR: constant/fvMesh/faceZones が存在しません"
+if [ ! -f "constant/polyMesh/faceZones" ]; then
+    echo "ERROR: constant/polyMesh/faceZones が存在しません"
     echo "  snappyHexMesh が rotating faceZone を生成しなかった可能性があります"
-    echo "  snappyHexMeshDict の addLayers/refinementSurfaces の設定を確認してください"
+    echo "  log.snappyHexMesh で 'rotating' faceZone の作成ログを確認してください"
     exit 1
 fi
 echo "  faceZones 確認 OK"
@@ -173,17 +188,17 @@ fi
 echo "  checkMesh 完了（問題なし）"
 
 # ---------------------------------------------------------------------------
-# Step 9: fvMesh を GCS へアップロード
+# Step 9: polyMesh を GCS へアップロード
 # ---------------------------------------------------------------------------
 echo ""
-echo "[Step 9] fvMesh を GCS へアップロード"
+echo "[Step 9] polyMesh を GCS へアップロード"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-GCS_MESH_DEST="gs://${GCS_BUCKET}/${GCS_MESH_PREFIX}/fvMesh_${TIMESTAMP}"
+GCS_MESH_DEST="gs://${GCS_BUCKET}/${GCS_MESH_PREFIX}/polyMesh_${TIMESTAMP}"
 echo "  宛先: ${GCS_MESH_DEST}/"
 
-# fvMesh ディレクトリのみアップロード（ケース全体は不要）
+# polyMesh ディレクトリのみアップロード（ケース全体は不要）
 gsutil -m cp -r \
-    "${CASE_DIR}/constant/fvMesh/" \
+    "${CASE_DIR}/constant/polyMesh/" \
     "${GCS_MESH_DEST}/"
 
 # メッシュ生成ログをアップロード（デバッグ用）

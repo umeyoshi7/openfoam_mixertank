@@ -99,26 +99,26 @@ if [ -z "${GCS_MESH_PATH}" ]; then
 fi
 echo "  使用メッシュ: ${GCS_MESH_PATH}"
 
-mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
-gsutil -m cp -r "${GCS_MESH_PATH}*" "${TRANSIENT_DIR}/constant/fvMesh/"
-echo "  fvMesh ダウンロード完了"
+mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
+gsutil -m cp -r "${GCS_MESH_PATH}*" "${TRANSIENT_DIR}/constant/polyMesh/"
+echo "  polyMesh ダウンロード完了"
 
 # ---------------------------------------------------------------------------
-# Step 4: fvMesh シンボリックリンク再作成
+# Step 4: polyMesh シンボリックリンク再作成
 # ---------------------------------------------------------------------------
 echo ""
-echo "[Step 4] fvMesh シンボリックリンク再作成"
+echo "[Step 4] polyMesh シンボリックリンク再作成"
 mkdir -p "${MRF_DIR}/constant"
 # GCS はシンボリックリンクを保存できないため、ダウンロード後に必ず再作成する。
 # 既存ディレクトリ（GCS が実ディレクトリとして保存した場合）を削除してから ln -sf する。
-rm -rf "${MRF_DIR}/constant/fvMesh"
-ln -sf "../../LK-1_HD0.45/constant/fvMesh" "${MRF_DIR}/constant/fvMesh"
-echo "  ${MRF_DIR}/constant/fvMesh -> ../../LK-1_HD0.45/constant/fvMesh"
+rm -rf "${MRF_DIR}/constant/polyMesh"
+ln -sf "../../LK-1_HD0.45/constant/polyMesh" "${MRF_DIR}/constant/polyMesh"
+echo "  ${MRF_DIR}/constant/polyMesh -> ../../LK-1_HD0.45/constant/polyMesh"
 
 # シンボリックリンクの解決確認
-if [ ! -f "${MRF_DIR}/constant/fvMesh/faces" ]; then
-    echo "ERROR: fvMesh シンボリックリンクが正しく解決されません"
-    echo "  ${TRANSIENT_DIR}/constant/fvMesh/faces が存在するか確認してください"
+if [ ! -f "${MRF_DIR}/constant/polyMesh/faces" ]; then
+    echo "ERROR: polyMesh シンボリックリンクが正しく解決されません"
+    echo "  ${TRANSIENT_DIR}/constant/polyMesh/faces が存在するか確認してください"
     exit 1
 fi
 echo "  シンボリックリンク確認 OK"
