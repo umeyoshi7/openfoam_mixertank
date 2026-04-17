@@ -56,8 +56,12 @@ echo "  ダウンロード完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 2] OpenFOAM 環境読み込み"
+# OpenFOAM bashrc は内部で未設定変数を参照したり非ゼロ終了するコマンドを含むため、
+# source 中だけ厳格モードを一時解除する。
+set +euo pipefail
 # shellcheck disable=SC1091
 source /opt/openfoam11/etc/bashrc
+set -euo pipefail
 
 # WM_PROJECT_VERSION の確認 (set -u のもとで未設定なら即終了するため明示チェック)
 if [ -z "${WM_PROJECT_VERSION:-}" ]; then
@@ -65,6 +69,10 @@ if [ -z "${WM_PROJECT_VERSION:-}" ]; then
     exit 1
 fi
 echo "  OpenFOAM: ${WM_PROJECT}-${WM_PROJECT_VERSION}"
+
+# RunFunctions を明示的にロード (bashrc は環境変数のみセット、restore0Dir 等は含まない)
+# shellcheck disable=SC1091
+. "${WM_PROJECT_DIR}/bin/tools/RunFunctions"
 
 # RunFunctions (restore0Dir 等) の可用性確認
 if ! type restore0Dir > /dev/null 2>&1; then
