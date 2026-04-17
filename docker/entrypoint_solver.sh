@@ -5,8 +5,9 @@
 # ワークフロー:
 #   1. GCS からケースファイルをダウンロード
 #   2. OpenFOAM 環境読み込み
-#   3. GCS から fvMesh をダウンロード（GCS_MESH_PATH または mesh/latest.txt 参照）
-#   4. fvMesh シンボリックリンク再作成（MRF ケース用）
+#   3. GCS から polyMesh + fvMesh をダウンロード
+#      （GCS_MESH_PATH または mesh/latest.txt 参照）
+#   4. polyMesh + fvMesh シンボリックリンク再作成（MRF ケース用）
 #   5. decomposeParDict を NCORES に更新
 #   6a. MRF foamRun（定常収束）
 #   6b. Python internalField コピー（MRF → pimpleFoam 初期値転写）
@@ -19,7 +20,7 @@
 #   NCORES              MPI コア数 (デフォルト: 4)
 #   GCS_RESULT_PREFIX   結果の GCS プレフィックス (デフォルト: results)
 #   MRF_END_TIME        MRF 計算の終了イテレーション数 (デフォルト: 3000)
-#   GCS_MESH_PATH       fvMesh の GCS パス (省略時: mesh/latest.txt から自動取得)
+#   GCS_MESH_PATH       メッシュの GCS パス (省略時: mesh/latest.txt から自動取得)
 #------------------------------------------------------------------------------
 set -euo pipefail
 
@@ -80,10 +81,10 @@ if ! type restore0Dir > /dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------------------------
-# Step 3: GCS から fvMesh をダウンロード
+# Step 3: GCS から polyMesh + fvMesh をダウンロード
 # ---------------------------------------------------------------------------
 echo ""
-echo "[Step 3] fvMesh の解決とダウンロード"
+echo "[Step 3] polyMesh + fvMesh の解決とダウンロード"
 
 if [ -z "${GCS_MESH_PATH}" ]; then
     echo "  GCS_MESH_PATH 未設定 → gs://${GCS_BUCKET}/mesh/latest.txt から取得"
@@ -91,31 +92,51 @@ if [ -z "${GCS_MESH_PATH}" ]; then
         | tr -d '[:space:]')
 fi
 if [ -z "${GCS_MESH_PATH}" ]; then
-    echo "ERROR: fvMesh パスを特定できません。"
+    echo "ERROR: メッシュパスを特定できません。"
     echo "  GCS_MESH_PATH 環境変数を設定するか、メッシュ生成ジョブを先に実行してください。"
     exit 1
 fi
 echo "  使用メッシュ: ${GCS_MESH_PATH}"
 
-mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
-gsutil -m cp -r "${GCS_MESH_PATH}*" "${TRANSIENT_DIR}/constant/fvMesh/"
-echo "  fvMesh ダウンロード完了"
+# constant/polyMesh/: メッシュ本体
+mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
+gsutil -m cp -r "${GCS_MESH_PATH}polyMesh" "${TRANSIENT_DIR}/constant/"
+
+# constant/fvMesh/: NCC スティッチャー用データ (polyFaces)
+# createNonConformalCouples が生成したもの。存在しない場合はスキップ。
+if gsutil -q stat "${GCS_MESH_PATH}fvMesh/" 2>/dev/null; then
+    mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
+    gsutil -m cp -r "${GCS_MESH_PATH}fvMesh" "${TRANSIENT_DIR}/constant/"
+else
+    echo "  fvMesh が GCS に存在しません（古いメッシュジョブの可能性）、スキップ"
+fi
+echo "  メッシュダウンロード完了"
 
 # ---------------------------------------------------------------------------
-# Step 4: fvMesh シンボリックリンク再作成（MRF ケース用）
+# Step 4: polyMesh + fvMesh シンボリックリンク再作成（MRF ケース用）
 # ---------------------------------------------------------------------------
 echo ""
-echo "[Step 4] fvMesh シンボリックリンク再作成"
+echo "[Step 4] polyMesh + fvMesh シンボリックリンク再作成"
 mkdir -p "${MRF_DIR}/constant"
-# GCS はシンボリックリンクを保存できないため、ダウンロード後に必ず再作成する。
-rm -rf "${MRF_DIR}/constant/fvMesh"
-ln -sf "../../LK-1_HD0.45/constant/fvMesh" "${MRF_DIR}/constant/fvMesh"
-echo "  ${MRF_DIR}/constant/fvMesh -> ../../LK-1_HD0.45/constant/fvMesh"
 
-if [ ! -f "${MRF_DIR}/constant/fvMesh/faces" ]; then
-    echo "ERROR: fvMesh シンボリックリンクが正しく解決されません"
+# GCS はシンボリックリンクを保存できないため、ダウンロード後に必ず再作成する。
+# polyMesh: メッシュ本体
+rm -rf "${MRF_DIR}/constant/polyMesh"
+ln -sf "../../LK-1_HD0.45/constant/polyMesh" "${MRF_DIR}/constant/polyMesh"
+echo "  ${MRF_DIR}/constant/polyMesh -> ../../LK-1_HD0.45/constant/polyMesh"
+
+if [ ! -f "${MRF_DIR}/constant/polyMesh/faces" ]; then
+    echo "ERROR: polyMesh シンボリックリンクが正しく解決されません"
     exit 1
 fi
+
+# fvMesh: NCC スティッチャー用データ（NCC パッチがあれば必要）
+if [ -d "${TRANSIENT_DIR}/constant/fvMesh" ]; then
+    rm -rf "${MRF_DIR}/constant/fvMesh"
+    ln -sf "../../LK-1_HD0.45/constant/fvMesh" "${MRF_DIR}/constant/fvMesh"
+    echo "  ${MRF_DIR}/constant/fvMesh -> ../../LK-1_HD0.45/constant/fvMesh"
+fi
+
 echo "  シンボリックリンク確認 OK"
 
 # ---------------------------------------------------------------------------

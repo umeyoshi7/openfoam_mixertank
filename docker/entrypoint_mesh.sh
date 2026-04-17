@@ -12,7 +12,7 @@
 #   7. createBaffles（AMI1/AMI2 パッチ生成）
 #   8. createNonConformalCouples（AMI1/AMI2 → NCC 変換）
 #   9. checkMesh
-#  10. fvMesh を GCS へアップロード
+#  10. polyMesh + fvMesh を GCS へアップロード
 #
 # 環境変数:
 #   GCS_BUCKET        GCS バケット名 (必須)
@@ -83,8 +83,8 @@ echo "[Step 3] blockMesh 実行"
 cd "${CASE_DIR}"
 blockMesh 2>&1 | tee log.blockMesh
 
-if [ ! -f "constant/fvMesh/faces" ]; then
-    echo "ERROR: blockMesh が constant/fvMesh/faces を生成しませんでした"
+if [ ! -f "constant/polyMesh/faces" ]; then
+    echo "ERROR: blockMesh が constant/polyMesh/faces を生成しませんでした"
     exit 1
 fi
 echo "  blockMesh 完了"
@@ -120,28 +120,29 @@ decomposePar -force 2>&1 | tee log.decomposePar
 mpirun --allow-run-as-root --oversubscribe -np "${NCORES}" \
     snappyHexMesh -parallel -overwrite 2>&1 | tee log.snappyHexMesh
 
-# OF11 では reconstructPar -constant で constant/fvMesh/ にメッシュを再構築
+# OF11 では reconstructPar -constant で constant/polyMesh/ にメッシュを再構築
+# (reconstructParMesh ではなく reconstructPar を使用)
 reconstructPar -constant 2>&1 | tee log.reconstructPar
 
 # faceZones フォールバック: reconstructPar が faceZones を含まないケースに対応
-if [ ! -f "constant/fvMesh/faceZones" ]; then
+if [ ! -f "constant/polyMesh/faceZones" ]; then
     echo "  reconstructPar 後に faceZones が見当たらない、フォールバックを試みます..."
-    # Fallback 1: processor0/constant/fvMesh (-overwrite で直接書き込まれた場合)
-    if [ -f "processor0/constant/fvMesh/faceZones" ]; then
-        echo "  processor0/constant/fvMesh/ からコピー"
-        cp "processor0/constant/fvMesh/faceZones" "constant/fvMesh/"
-        [ -f "processor0/constant/fvMesh/cellZones" ] && \
-            cp "processor0/constant/fvMesh/cellZones" "constant/fvMesh/"
+    # Fallback 1: processor0/constant/polyMesh (-overwrite で直接書き込まれた場合)
+    if [ -f "processor0/constant/polyMesh/faceZones" ]; then
+        echo "  processor0/constant/polyMesh/ からコピー"
+        cp "processor0/constant/polyMesh/faceZones" "constant/polyMesh/"
+        [ -f "processor0/constant/polyMesh/cellZones" ] && \
+            cp "processor0/constant/polyMesh/cellZones" "constant/polyMesh/"
     fi
     # Fallback 2: タイムディレクトリに書かれた場合
-    if [ ! -f "constant/fvMesh/faceZones" ]; then
-        PROC_ZONE=$(ls processor0/[0-9]*/fvMesh/faceZones 2>/dev/null | tail -1)
+    if [ ! -f "constant/polyMesh/faceZones" ]; then
+        PROC_ZONE=$(ls processor0/[0-9]*/polyMesh/faceZones 2>/dev/null | tail -1)
         if [ -n "${PROC_ZONE}" ]; then
             ZONE_TIME=$(echo "${PROC_ZONE}" | cut -d'/' -f2)
-            echo "  processor0/${ZONE_TIME}/fvMesh/ からコピー (time=${ZONE_TIME})"
-            cp "processor0/${ZONE_TIME}/fvMesh/faceZones" "constant/fvMesh/"
-            [ -f "processor0/${ZONE_TIME}/fvMesh/cellZones" ] && \
-                cp "processor0/${ZONE_TIME}/fvMesh/cellZones" "constant/fvMesh/"
+            echo "  processor0/${ZONE_TIME}/polyMesh/ からコピー (time=${ZONE_TIME})"
+            cp "processor0/${ZONE_TIME}/polyMesh/faceZones" "constant/polyMesh/"
+            [ -f "processor0/${ZONE_TIME}/polyMesh/cellZones" ] && \
+                cp "processor0/${ZONE_TIME}/polyMesh/cellZones" "constant/polyMesh/"
         fi
     fi
 fi
@@ -154,8 +155,8 @@ echo "  snappyHexMesh 完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 6] faceZones 存在確認"
-if [ ! -f "constant/fvMesh/faceZones" ]; then
-    echo "ERROR: constant/fvMesh/faceZones が存在しません"
+if [ ! -f "constant/polyMesh/faceZones" ]; then
+    echo "ERROR: constant/polyMesh/faceZones が存在しません"
     echo "  snappyHexMesh が rotating faceZone を生成しなかった可能性があります"
     echo "  log.snappyHexMesh で 'rotating' faceZone の作成ログを確認してください"
     exit 1
@@ -196,17 +197,28 @@ fi
 echo "  checkMesh 完了（問題なし）"
 
 # ---------------------------------------------------------------------------
-# Step 10: fvMesh を GCS へアップロード
+# Step 10: polyMesh + fvMesh を GCS へアップロード
+# ---------------------------------------------------------------------------
+# constant/polyMesh/: メッシュ本体 (faces, points, boundary, faceZones 等)
+# constant/fvMesh/:   NCC スティッチャー用データ (polyFaces)
+#                     createNonConformalCouples が生成。ソルバーに必要。
 # ---------------------------------------------------------------------------
 echo ""
-echo "[Step 10] fvMesh を GCS へアップロード"
+echo "[Step 10] polyMesh + fvMesh を GCS へアップロード"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-GCS_MESH_DEST="gs://${GCS_BUCKET}/${GCS_MESH_PREFIX}/fvMesh_${TIMESTAMP}"
+GCS_MESH_DEST="gs://${GCS_BUCKET}/${GCS_MESH_PREFIX}/mesh_${TIMESTAMP}"
 echo "  宛先: ${GCS_MESH_DEST}/"
 
 gsutil -m cp -r \
-    "${CASE_DIR}/constant/fvMesh/" \
-    "${GCS_MESH_DEST}/"
+    "${CASE_DIR}/constant/polyMesh/" \
+    "${GCS_MESH_DEST}/polyMesh/"
+
+# createNonConformalCouples が生成した fvMesh/polyFaces もアップロード
+if [ -d "${CASE_DIR}/constant/fvMesh" ]; then
+    gsutil -m cp -r \
+        "${CASE_DIR}/constant/fvMesh/" \
+        "${GCS_MESH_DEST}/fvMesh/"
+fi
 
 gsutil -m cp \
     "${CASE_DIR}/log."* \
