@@ -69,6 +69,10 @@ if [ -z "${WM_PROJECT_VERSION:-}" ]; then
 fi
 echo "  OpenFOAM: ${WM_PROJECT}-${WM_PROJECT_VERSION}"
 
+# RunFunctions を明示的にロード (bashrc は環境変数のみセット、restore0Dir 等は含まない)
+# shellcheck disable=SC1091
+. "${WM_PROJECT_DIR}/bin/tools/RunFunctions"
+
 # RunFunctions (restore0Dir 等) の可用性確認
 if ! type restore0Dir > /dev/null 2>&1; then
     echo "ERROR: restore0Dir が使用できません (RunFunctions が未ロード)"
