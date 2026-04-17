@@ -47,12 +47,12 @@ boundaryField
     AMI1
     {
         type            movingWallSlipVelocity;
-        value           $internalField;
+        value           uniform (0 0 0);
     }
     AMI2
     {
         type            movingWallSlipVelocity;
-        value           $internalField;
+        value           uniform (0 0 0);
     }
 }
 

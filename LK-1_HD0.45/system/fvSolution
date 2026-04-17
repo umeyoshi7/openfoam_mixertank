@@ -24,6 +24,14 @@ solvers
         tolerance   1e-06;
         relTol      0.01;
     }
+
+    MeshPhi
+    {
+        solver          PCG;
+        preconditioner  DIC;
+        tolerance       1e-6;
+        relTol          0;
+    }
     
     p
     {
@@ -82,7 +90,7 @@ PIMPLE
 {
     momentumPredictor   yes;
     correctPhi          yes;
-    correctMeshPhi      yes;
+    correctMeshPhi      no;
     nOuterCorrectors    7;
     nCorrectors         4;
     nNonOrthogonalCorrectors 3;
