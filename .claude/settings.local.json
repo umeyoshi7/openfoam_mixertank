@@ -10,7 +10,17 @@
       "Bash(bash:*)",
       "Bash(cmd:*)",
       "Bash(powershell:*)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Read(//opt/openfoam11/etc/**)",
+      "Read(//usr/lib/openfoam/openfoam11/etc/**)",
+      "Read(//c/Users/umeyo/OpenFOAM/OpenFOAM-11/etc/**)",
+      "Bash(docker --version)",
+      "Bash(cmd.exe /c \"docker --version\")",
+      "Bash(powershell.exe -Command \"docker --version\")",
+      "Bash(cmd.exe /c \"docker images\")",
+      "Bash(cmd.exe *)",
+      "Bash(powershell.exe *)",
+      "Bash(wsl.exe *)"
     ]
   }
 }

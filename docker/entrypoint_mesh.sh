@@ -6,7 +6,7 @@
 #   1. GCS からケースファイルをダウンロード
 #   2. OpenFOAM 環境読み込み
 #   3. blockMesh
-#   4. surfaceFeatureExtract
+#   4. surfaceFeatures (OF11 では surfaceFeatureExtract は非推奨)
 #   5. 0/ を 0.mesh/ で置換後 decomposePar+snappyHexMesh（並列）+reconstructPar
 #   6. faceZones 存在確認（createBaffles の前提）
 #   7. createBaffles（AMI1/AMI2 パッチ生成）
@@ -97,13 +97,13 @@ fi
 echo "  blockMesh 完了"
 
 # ---------------------------------------------------------------------------
-# Step 4: surfaceFeatureExtract
+# Step 4: surfaceFeatures (OF11 では surfaceFeatureExtract は非推奨)
 # ---------------------------------------------------------------------------
 echo ""
-echo "[Step 4] surfaceFeatureExtract 実行"
+echo "[Step 4] surfaceFeatures 実行"
 cd "${CASE_DIR}"
-surfaceFeatureExtract 2>&1 | tee log.surfaceFeatureExtract
-echo "  surfaceFeatureExtract 完了"
+surfaceFeatures 2>&1 | tee log.surfaceFeatures
+echo "  surfaceFeatures 完了"
 
 # ---------------------------------------------------------------------------
 # Step 5: snappyHexMesh（並列）

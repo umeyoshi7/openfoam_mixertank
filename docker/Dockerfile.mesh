@@ -1,6 +1,6 @@
 # ==============================================================================
 # OpenFOAM v11 メッシュ生成ジョブ
-# Runs: blockMesh → surfaceFeatureExtract → snappyHexMesh → createBaffles
+# Runs: blockMesh → surfaceFeatures → snappyHexMesh → createBaffles
 # ==============================================================================
 # openfoam.org 公式 Docker イメージ。
 # OpenFOAM v11 が /opt/openfoam11/ にインストール済み。

@@ -10,63 +10,43 @@ FoamFile
     version     2.0;
     format      ascii;
     class       dictionary;
-    object      surfaceFeatureExtractDict;
+    object      surfaceFeaturesDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// includedAngle:
-// Mark edges whose adjacent surface normals are at an angle less
-// than includedAngle as features
-// - 0  : selects no edges
-// - 180: selects all edges
-
 reactor_HD0.45.stl
 {
-    extractionMethod    extractFromSurface;
-
-    includedAngle       150;
-
-    writeObj            no;
+    surfaces        ("reactor_HD0.45.stl");
+    includedAngle   150;
     writeFeatureEdgeMesh yes;
 }
 
 impeller_HD0.45.stl
 {
-    extractionMethod    extractFromSurface;
-
-    includedAngle       150;
-
-    writeObj            no;
+    surfaces        ("impeller_HD0.45.stl");
+    includedAngle   150;
     writeFeatureEdgeMesh yes;
 }
 
 baffle_HD0.45.stl
 {
-    extractionMethod    extractFromSurface;
-
-    includedAngle       150;
-
-    writeObj            no;
+    surfaces        ("baffle_HD0.45.stl");
+    includedAngle   150;
     writeFeatureEdgeMesh yes;
 }
 
 shaft_HD0.45.stl
 {
-    extractionMethod    extractFromSurface;
-
-    includedAngle       150;
-
-    writeObj            no;
+    surfaces        ("shaft_HD0.45.stl");
+    includedAngle   150;
     writeFeatureEdgeMesh yes;
 }
 
 rotation_HD0.45.stl
 {
-    extractionMethod    extractFromSurface;
-
-    includedAngle       150;
-
-    writeObj            no;
+    surfaces        ("rotation_HD0.45.stl");
+    includedAngle   150;
     writeFeatureEdgeMesh yes;
 }
+
 // ************************************************************************* //
