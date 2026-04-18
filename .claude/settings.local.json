@@ -20,7 +20,8 @@
       "Bash(cmd.exe /c \"docker images\")",
       "Bash(cmd.exe *)",
       "Bash(powershell.exe *)",
-      "Bash(wsl.exe *)"
+      "Bash(wsl.exe *)",
+      "Bash(docker version *)"
     ]
   }
 }
