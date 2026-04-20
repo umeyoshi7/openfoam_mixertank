@@ -106,14 +106,16 @@ fi
 echo "  使用メッシュ: ${GCS_MESH_PATH}"
 
 # constant/polyMesh/: メッシュ本体
+# トレーリングスラッシュ付きでコピー先を明示し、二重ネスト（polyMesh/polyMesh/）を防ぐ。
 mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
-gsutil -m cp -r "${GCS_MESH_PATH}polyMesh" "${TRANSIENT_DIR}/constant/"
+gsutil -m cp -r "${GCS_MESH_PATH}polyMesh/" "${TRANSIENT_DIR}/constant/polyMesh/"
 
 # constant/fvMesh/: NCC スティッチャー用データ (polyFaces)
 # createNonConformalCouples が生成したもの。存在しない場合はスキップ。
-if gsutil -q stat "${GCS_MESH_PATH}fvMesh/" 2>/dev/null; then
+# GCS にはディレクトリオブジェクトが存在しないため gsutil stat ではなく gsutil ls で確認する。
+if gsutil ls "${GCS_MESH_PATH}fvMesh/" >/dev/null 2>&1; then
     mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
-    gsutil -m cp -r "${GCS_MESH_PATH}fvMesh" "${TRANSIENT_DIR}/constant/"
+    gsutil -m cp -r "${GCS_MESH_PATH}fvMesh/" "${TRANSIENT_DIR}/constant/fvMesh/"
 else
     echo "  fvMesh が GCS に存在しません（古いメッシュジョブの可能性）、スキップ"
 fi
