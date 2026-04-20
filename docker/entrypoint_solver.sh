@@ -108,33 +108,41 @@ GCS_MESH_PATH="${GCS_MESH_PATH%/}/"
 echo "  使用メッシュ: ${GCS_MESH_PATH}"
 
 # constant/polyMesh/: メッシュ本体
-# ─ なぜ rm -rf するか ─────────────────────────────────────────────
-# mkdir -p で先にディレクトリを作成してから gsutil cp -r すると、gsutil は
-# 既存の polyMesh/ を「コピー先」でなく「コピー先の親」と解釈し、
-# polyMesh/polyMesh/ という二重ネストを生成する。
-# rm -rf で事前に削除し、gsutil が新規ディレクトリとして作成するようにする。
+# ─ なぜ gsutil rsync を使うか ────────────────────────────────────────
+# gsutil cp -r はコピー先ディレクトリの有無によって展開先が変わる。
+# （constant/ が存在しない場合に constant/faces のような誤ったパスに
+#   展開される場合がある）
+# gsutil rsync は「src の内容を dst へ同期」という明確なセマンティクスを持ち、
+# 常に dst/faces のように展開されるため確実。
 # ────────────────────────────────────────────────────────────────────
-rm -rf "${TRANSIENT_DIR}/constant/polyMesh"
-gsutil -m cp -r "${GCS_MESH_PATH}polyMesh" "${TRANSIENT_DIR}/constant/"
 
-# ダウンロード検証: faces が正しいパスに存在することを確認
+# GCS に polyMesh が存在するか事前確認
+if ! gsutil ls "${GCS_MESH_PATH}polyMesh/" >/dev/null 2>&1; then
+    echo "ERROR: GCS に polyMesh が見つかりません: ${GCS_MESH_PATH}polyMesh/"
+    echo "  メッシュジョブが正常完了しているか確認してください"
+    echo "  GCS メッシュディレクトリの内容:"
+    gsutil ls "${GCS_MESH_PATH}" 2>&1 | head -20 || true
+    exit 1
+fi
+
+mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
+gsutil -m rsync -r "${GCS_MESH_PATH}polyMesh" "${TRANSIENT_DIR}/constant/polyMesh"
+
+# ダウンロード検証
 if [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces" ]; then
-    echo "ERROR: polyMesh のダウンロードに失敗しました (faces ファイルが見つかりません)"
-    echo "  GCS パス: ${GCS_MESH_PATH}polyMesh/"
-    echo "  ダウンロード先の内容:"
+    echo "ERROR: polyMesh のダウンロード後に faces が見つかりません"
+    echo "  GCS 側のファイル一覧:"
+    gsutil ls "${GCS_MESH_PATH}polyMesh/" 2>&1 | head -20 || true
+    echo "  ローカルの内容:"
     find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 2 2>/dev/null || true
     exit 1
 fi
 
 # constant/fvMesh/: NCC スティッチャー用データ (polyFaces)
-# ─ なぜ gsutil ls を使うか ──────────────────────────────────────────
-# GCS にはディレクトリオブジェクトが存在しないため gsutil stat は
-# "fvMesh/" というオブジェクトを検索して必ず失敗する。
-# gsutil ls はプレフィックス一致でオブジェクトの有無を確認できる。
-# ────────────────────────────────────────────────────────────────────
+# GCS にはディレクトリオブジェクトが存在しないため gsutil ls でプレフィックス検索する。
 if gsutil ls "${GCS_MESH_PATH}fvMesh/" >/dev/null 2>&1; then
-    rm -rf "${TRANSIENT_DIR}/constant/fvMesh"
-    gsutil -m cp -r "${GCS_MESH_PATH}fvMesh" "${TRANSIENT_DIR}/constant/"
+    mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
+    gsutil -m rsync -r "${GCS_MESH_PATH}fvMesh" "${TRANSIENT_DIR}/constant/fvMesh"
 else
     echo "  fvMesh が GCS に存在しません（NCC なしのメッシュまたは古いジョブ）、スキップ"
 fi
