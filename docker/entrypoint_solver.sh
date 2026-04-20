@@ -125,47 +125,42 @@ if ! gsutil ls "${GCS_MESH_PATH}polyMesh/" >/dev/null 2>&1; then
     exit 1
 fi
 
+# GCS の polyMesh 構造を確認し、二重ネスト (polyMesh/polyMesh/) にも対応する。
+# 旧バグ: gsutil cp -r src/ dst/ が polyMesh/polyMesh/ の二重ネストを生成していた。
+# 修正済み mesh.sh は rsync を使用するためフラット構造になるが、
+# 既存の二重ネストデータにも対応するため構造を事前判定する。
 echo "  GCS polyMesh の内容:"
-gsutil ls "${GCS_MESH_PATH}polyMesh/" 2>&1 | head -30 || true
+gsutil ls "${GCS_MESH_PATH}polyMesh/" 2>&1 | head -20 || true
+
+POLY_GCS_SRC="${GCS_MESH_PATH}polyMesh"
+if gsutil ls "${POLY_GCS_SRC}/polyMesh/" >/dev/null 2>&1; then
+    echo "  WARN: GCS に二重ネスト (polyMesh/polyMesh/) を検出。内側パスを使用します"
+    POLY_GCS_SRC="${GCS_MESH_PATH}polyMesh/polyMesh"
+fi
 
 mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
-gsutil -m rsync -r "${GCS_MESH_PATH}polyMesh" "${TRANSIENT_DIR}/constant/polyMesh"
+gsutil -m rsync -r "${POLY_GCS_SRC}" "${TRANSIENT_DIR}/constant/polyMesh"
 
-echo "  ローカル polyMesh の内容 (再帰3階層):"
-find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 3 2>/dev/null | sort | head -40 || true
-
-# ダウンロード検証（圧縮ファイル faces.gz も考慮、サブディレクトリへの誤展開も修正）
-FACES_FILE=$(find "${TRANSIENT_DIR}/constant/polyMesh" \
-    \( -name "faces" -o -name "faces.gz" \) 2>/dev/null | head -1)
-if [ -z "${FACES_FILE}" ]; then
+# ダウンロード検証
+if [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces" ] && \
+   [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces.gz" ]; then
     echo "ERROR: polyMesh のダウンロード後に faces/faces.gz が見つかりません"
+    echo "  ローカルの内容:"
+    find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 2 2>/dev/null | sort || true
     exit 1
-fi
-FACES_PARENT=$(dirname "${FACES_FILE}")
-if [ "${FACES_PARENT}" != "${TRANSIENT_DIR}/constant/polyMesh" ]; then
-    # rsync がサブディレクトリに展開した場合（例: polyMesh/polyMesh/faces）は修正する
-    echo "  WARN: faces が予期しないパスに展開されました: ${FACES_PARENT}"
-    echo "  → ${TRANSIENT_DIR}/constant/polyMesh/ に移動します"
-    mv "${FACES_PARENT}"/* "${TRANSIENT_DIR}/constant/polyMesh/"
-    rmdir "${FACES_PARENT}" 2>/dev/null || true
 fi
 echo "  polyMesh ダウンロード OK"
 
 # constant/fvMesh/: NCC スティッチャー用データ (polyFaces)
 # GCS にはディレクトリオブジェクトが存在しないため gsutil ls でプレフィックス検索する。
 if gsutil ls "${GCS_MESH_PATH}fvMesh/" >/dev/null 2>&1; then
-    mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
-    gsutil -m rsync -r "${GCS_MESH_PATH}fvMesh" "${TRANSIENT_DIR}/constant/fvMesh"
-    # サブディレクトリへの誤展開を修正
-    POLYFACES=$(find "${TRANSIENT_DIR}/constant/fvMesh" -name "polyFaces" 2>/dev/null | head -1)
-    if [ -n "${POLYFACES}" ]; then
-        PF_PARENT=$(dirname "${POLYFACES}")
-        if [ "${PF_PARENT}" != "${TRANSIENT_DIR}/constant/fvMesh" ]; then
-            echo "  WARN: fvMesh が予期しないパスに展開: ${PF_PARENT} → 修正"
-            mv "${PF_PARENT}"/* "${TRANSIENT_DIR}/constant/fvMesh/"
-            rmdir "${PF_PARENT}" 2>/dev/null || true
-        fi
+    FVMESH_GCS_SRC="${GCS_MESH_PATH}fvMesh"
+    if gsutil ls "${FVMESH_GCS_SRC}/fvMesh/" >/dev/null 2>&1; then
+        echo "  WARN: GCS に二重ネスト (fvMesh/fvMesh/) を検出。内側パスを使用します"
+        FVMESH_GCS_SRC="${GCS_MESH_PATH}fvMesh/fvMesh"
     fi
+    mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
+    gsutil -m rsync -r "${FVMESH_GCS_SRC}" "${TRANSIENT_DIR}/constant/fvMesh"
 else
     echo "  fvMesh が GCS に存在しません（NCC なしのメッシュまたは古いジョブ）、スキップ"
 fi
