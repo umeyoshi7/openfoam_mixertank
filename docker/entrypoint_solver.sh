@@ -125,16 +125,19 @@ if ! gsutil ls "${GCS_MESH_PATH}polyMesh/" >/dev/null 2>&1; then
     exit 1
 fi
 
+echo "  GCS polyMesh の内容:"
+gsutil ls "${GCS_MESH_PATH}polyMesh/" 2>&1 | head -30 || true
+
 mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
 gsutil -m rsync -r "${GCS_MESH_PATH}polyMesh" "${TRANSIENT_DIR}/constant/polyMesh"
 
-# ダウンロード検証
-if [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces" ]; then
-    echo "ERROR: polyMesh のダウンロード後に faces が見つかりません"
-    echo "  GCS 側のファイル一覧:"
-    gsutil ls "${GCS_MESH_PATH}polyMesh/" 2>&1 | head -20 || true
-    echo "  ローカルの内容:"
-    find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 2 2>/dev/null || true
+echo "  ローカル polyMesh の内容:"
+find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 1 2>/dev/null | sort | head -30 || true
+
+# ダウンロード検証（圧縮ファイル faces.gz も考慮）
+if [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces" ] && \
+   [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces.gz" ]; then
+    echo "ERROR: polyMesh のダウンロード後に faces/faces.gz が見つかりません"
     exit 1
 fi
 
@@ -161,8 +164,11 @@ rm -rf "${MRF_DIR}/constant/polyMesh"
 ln -sf "../../LKHD045/constant/polyMesh" "${MRF_DIR}/constant/polyMesh"
 echo "  ${MRF_DIR}/constant/polyMesh -> ../../LKHD045/constant/polyMesh"
 
-if [ ! -f "${MRF_DIR}/constant/polyMesh/faces" ]; then
+if [ ! -f "${MRF_DIR}/constant/polyMesh/faces" ] && \
+   [ ! -f "${MRF_DIR}/constant/polyMesh/faces.gz" ]; then
     echo "ERROR: polyMesh シンボリックリンクが正しく解決されません"
+    echo "  リンク先の内容:"
+    find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 1 2>/dev/null | sort | head -20 || true
     exit 1
 fi
 
