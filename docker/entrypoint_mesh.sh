@@ -220,15 +220,18 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 GCS_MESH_DEST="gs://${GCS_BUCKET}/${GCS_MESH_PREFIX}/mesh_${TIMESTAMP}"
 echo "  宛先: ${GCS_MESH_DEST}/"
 
-gsutil -m cp -r \
-    "${CASE_DIR}/constant/polyMesh/" \
-    "${GCS_MESH_DEST}/polyMesh/"
+# gsutil cp -r はソース・デスト両方にスラッシュがあるとディレクトリ自体を
+# コピーして polyMesh/polyMesh/ のような二重ネストを生成する。
+# gsutil rsync は常に src の中身を dst へ同期するため二重ネストにならない。
+gsutil -m rsync -r \
+    "${CASE_DIR}/constant/polyMesh" \
+    "${GCS_MESH_DEST}/polyMesh"
 
 # createNonConformalCouples が生成した fvMesh/polyFaces もアップロード
 if [ -d "${CASE_DIR}/constant/fvMesh" ]; then
-    gsutil -m cp -r \
-        "${CASE_DIR}/constant/fvMesh/" \
-        "${GCS_MESH_DEST}/fvMesh/"
+    gsutil -m rsync -r \
+        "${CASE_DIR}/constant/fvMesh" \
+        "${GCS_MESH_DEST}/fvMesh"
 fi
 
 gsutil -m cp \
