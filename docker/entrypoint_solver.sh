@@ -131,21 +131,41 @@ gsutil ls "${GCS_MESH_PATH}polyMesh/" 2>&1 | head -30 || true
 mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
 gsutil -m rsync -r "${GCS_MESH_PATH}polyMesh" "${TRANSIENT_DIR}/constant/polyMesh"
 
-echo "  ローカル polyMesh の内容:"
-find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 1 2>/dev/null | sort | head -30 || true
+echo "  ローカル polyMesh の内容 (再帰3階層):"
+find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 3 2>/dev/null | sort | head -40 || true
 
-# ダウンロード検証（圧縮ファイル faces.gz も考慮）
-if [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces" ] && \
-   [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces.gz" ]; then
+# ダウンロード検証（圧縮ファイル faces.gz も考慮、サブディレクトリへの誤展開も修正）
+FACES_FILE=$(find "${TRANSIENT_DIR}/constant/polyMesh" \
+    \( -name "faces" -o -name "faces.gz" \) 2>/dev/null | head -1)
+if [ -z "${FACES_FILE}" ]; then
     echo "ERROR: polyMesh のダウンロード後に faces/faces.gz が見つかりません"
     exit 1
 fi
+FACES_PARENT=$(dirname "${FACES_FILE}")
+if [ "${FACES_PARENT}" != "${TRANSIENT_DIR}/constant/polyMesh" ]; then
+    # rsync がサブディレクトリに展開した場合（例: polyMesh/polyMesh/faces）は修正する
+    echo "  WARN: faces が予期しないパスに展開されました: ${FACES_PARENT}"
+    echo "  → ${TRANSIENT_DIR}/constant/polyMesh/ に移動します"
+    mv "${FACES_PARENT}"/* "${TRANSIENT_DIR}/constant/polyMesh/"
+    rmdir "${FACES_PARENT}" 2>/dev/null || true
+fi
+echo "  polyMesh ダウンロード OK"
 
 # constant/fvMesh/: NCC スティッチャー用データ (polyFaces)
 # GCS にはディレクトリオブジェクトが存在しないため gsutil ls でプレフィックス検索する。
 if gsutil ls "${GCS_MESH_PATH}fvMesh/" >/dev/null 2>&1; then
     mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
     gsutil -m rsync -r "${GCS_MESH_PATH}fvMesh" "${TRANSIENT_DIR}/constant/fvMesh"
+    # サブディレクトリへの誤展開を修正
+    POLYFACES=$(find "${TRANSIENT_DIR}/constant/fvMesh" -name "polyFaces" 2>/dev/null | head -1)
+    if [ -n "${POLYFACES}" ]; then
+        PF_PARENT=$(dirname "${POLYFACES}")
+        if [ "${PF_PARENT}" != "${TRANSIENT_DIR}/constant/fvMesh" ]; then
+            echo "  WARN: fvMesh が予期しないパスに展開: ${PF_PARENT} → 修正"
+            mv "${PF_PARENT}"/* "${TRANSIENT_DIR}/constant/fvMesh/"
+            rmdir "${PF_PARENT}" 2>/dev/null || true
+        fi
+    fi
 else
     echo "  fvMesh が GCS に存在しません（NCC なしのメッシュまたは古いジョブ）、スキップ"
 fi
