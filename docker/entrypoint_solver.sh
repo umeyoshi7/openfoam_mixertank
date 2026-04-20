@@ -125,23 +125,10 @@ if ! gsutil ls "${GCS_MESH_PATH}polyMesh/" >/dev/null 2>&1; then
     exit 1
 fi
 
-# GCS の polyMesh 構造を確認し、二重ネスト (polyMesh/polyMesh/) にも対応する。
-# 旧バグ: gsutil cp -r src/ dst/ が polyMesh/polyMesh/ の二重ネストを生成していた。
-# 修正済み mesh.sh は rsync を使用するためフラット構造になるが、
-# 既存の二重ネストデータにも対応するため構造を事前判定する。
-echo "  GCS polyMesh の内容:"
-gsutil ls "${GCS_MESH_PATH}polyMesh/" 2>&1 | head -20 || true
-
-POLY_GCS_SRC="${GCS_MESH_PATH}polyMesh"
-if gsutil ls "${POLY_GCS_SRC}/polyMesh/" >/dev/null 2>&1; then
-    echo "  WARN: GCS に二重ネスト (polyMesh/polyMesh/) を検出。内側パスを使用します"
-    POLY_GCS_SRC="${GCS_MESH_PATH}polyMesh/polyMesh"
-fi
-
 mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
-gsutil -m rsync -r "${POLY_GCS_SRC}" "${TRANSIENT_DIR}/constant/polyMesh"
+gsutil -m rsync -r "${GCS_MESH_PATH}polyMesh" "${TRANSIENT_DIR}/constant/polyMesh"
 
-# ダウンロード検証
+# ダウンロード検証（圧縮ファイル faces.gz も考慮）
 if [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces" ] && \
    [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces.gz" ]; then
     echo "ERROR: polyMesh のダウンロード後に faces/faces.gz が見つかりません"
@@ -154,13 +141,8 @@ echo "  polyMesh ダウンロード OK"
 # constant/fvMesh/: NCC スティッチャー用データ (polyFaces)
 # GCS にはディレクトリオブジェクトが存在しないため gsutil ls でプレフィックス検索する。
 if gsutil ls "${GCS_MESH_PATH}fvMesh/" >/dev/null 2>&1; then
-    FVMESH_GCS_SRC="${GCS_MESH_PATH}fvMesh"
-    if gsutil ls "${FVMESH_GCS_SRC}/fvMesh/" >/dev/null 2>&1; then
-        echo "  WARN: GCS に二重ネスト (fvMesh/fvMesh/) を検出。内側パスを使用します"
-        FVMESH_GCS_SRC="${GCS_MESH_PATH}fvMesh/fvMesh"
-    fi
     mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
-    gsutil -m rsync -r "${FVMESH_GCS_SRC}" "${TRANSIENT_DIR}/constant/fvMesh"
+    gsutil -m rsync -r "${GCS_MESH_PATH}fvMesh" "${TRANSIENT_DIR}/constant/fvMesh"
 else
     echo "  fvMesh が GCS に存在しません（NCC なしのメッシュまたは古いジョブ）、スキップ"
 fi
