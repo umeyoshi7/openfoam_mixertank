@@ -103,21 +103,40 @@ if [ -z "${GCS_MESH_PATH}" ]; then
     echo "  GCS_MESH_PATH 環境変数を設定するか、メッシュ生成ジョブを先に実行してください。"
     exit 1
 fi
+# GCS_MESH_PATH に末尾スラッシュを確実に付与（環境変数で直接設定された場合の保険）
+GCS_MESH_PATH="${GCS_MESH_PATH%/}/"
 echo "  使用メッシュ: ${GCS_MESH_PATH}"
 
 # constant/polyMesh/: メッシュ本体
-# トレーリングスラッシュ付きでコピー先を明示し、二重ネスト（polyMesh/polyMesh/）を防ぐ。
-mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
-gsutil -m cp -r "${GCS_MESH_PATH}polyMesh/" "${TRANSIENT_DIR}/constant/polyMesh/"
+# ─ なぜ rm -rf するか ─────────────────────────────────────────────
+# mkdir -p で先にディレクトリを作成してから gsutil cp -r すると、gsutil は
+# 既存の polyMesh/ を「コピー先」でなく「コピー先の親」と解釈し、
+# polyMesh/polyMesh/ という二重ネストを生成する。
+# rm -rf で事前に削除し、gsutil が新規ディレクトリとして作成するようにする。
+# ────────────────────────────────────────────────────────────────────
+rm -rf "${TRANSIENT_DIR}/constant/polyMesh"
+gsutil -m cp -r "${GCS_MESH_PATH}polyMesh" "${TRANSIENT_DIR}/constant/"
+
+# ダウンロード検証: faces が正しいパスに存在することを確認
+if [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces" ]; then
+    echo "ERROR: polyMesh のダウンロードに失敗しました (faces ファイルが見つかりません)"
+    echo "  GCS パス: ${GCS_MESH_PATH}polyMesh/"
+    echo "  ダウンロード先の内容:"
+    find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 2 2>/dev/null || true
+    exit 1
+fi
 
 # constant/fvMesh/: NCC スティッチャー用データ (polyFaces)
-# createNonConformalCouples が生成したもの。存在しない場合はスキップ。
-# GCS にはディレクトリオブジェクトが存在しないため gsutil stat ではなく gsutil ls で確認する。
+# ─ なぜ gsutil ls を使うか ──────────────────────────────────────────
+# GCS にはディレクトリオブジェクトが存在しないため gsutil stat は
+# "fvMesh/" というオブジェクトを検索して必ず失敗する。
+# gsutil ls はプレフィックス一致でオブジェクトの有無を確認できる。
+# ────────────────────────────────────────────────────────────────────
 if gsutil ls "${GCS_MESH_PATH}fvMesh/" >/dev/null 2>&1; then
-    mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
-    gsutil -m cp -r "${GCS_MESH_PATH}fvMesh/" "${TRANSIENT_DIR}/constant/fvMesh/"
+    rm -rf "${TRANSIENT_DIR}/constant/fvMesh"
+    gsutil -m cp -r "${GCS_MESH_PATH}fvMesh" "${TRANSIENT_DIR}/constant/"
 else
-    echo "  fvMesh が GCS に存在しません（古いメッシュジョブの可能性）、スキップ"
+    echo "  fvMesh が GCS に存在しません（NCC なしのメッシュまたは古いジョブ）、スキップ"
 fi
 echo "  メッシュダウンロード完了"
 
