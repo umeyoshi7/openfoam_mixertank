@@ -20,8 +20,6 @@ internalField   uniform 0.0047;
 
 boundaryField
 {
-    #includeEtc "caseDicts/setConstraintTypes"
-
     top
     {
         type            symmetry;
@@ -53,6 +51,24 @@ boundaryField
     AMI2
     {
         type            zeroGradient;
+    }
+    nonConformalCyclic_on_AMI1
+    {
+        type            nonConformalCyclic;
+        value           uniform 0.0047;
+    }
+    nonConformalCyclic_on_AMI2
+    {
+        type            nonConformalCyclic;
+        value           uniform 0.0047;
+    }
+    nonConformalError_on_AMI1
+    {
+        type            nonConformalError;
+    }
+    nonConformalError_on_AMI2
+    {
+        type            nonConformalError;
     }
 }
 

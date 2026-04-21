@@ -24,17 +24,36 @@
 #------------------------------------------------------------------------------
 set -euo pipefail
 
-# ---------------------------------------------------------------------------
-# 環境変数のデフォルト値設定
-# ---------------------------------------------------------------------------
 GCS_BUCKET="${GCS_BUCKET:?ERROR: 環境変数 GCS_BUCKET が設定されていません}"
 NCORES="${NCORES:-4}"
 GCS_RESULT_PREFIX="${GCS_RESULT_PREFIX:-results}"
 MRF_END_TIME="${MRF_END_TIME:-3000}"
-GCS_MESH_PATH="${GCS_MESH_PATH:-}"   # 省略時は mesh/latest.txt から取得
+GCS_MESH_PATH="${GCS_MESH_PATH:-}"
 WORKSPACE="/workspace"
 MRF_DIR="${WORKSPACE}/LKHD045MRF"
 TRANSIENT_DIR="${WORKSPACE}/LKHD045"
+
+# エラー終了時に直近ログの末尾を表示する
+on_exit() {
+    local exit_code=$?
+    [ "$exit_code" -eq 0 ] && return
+    echo ""
+    echo "========================================"
+    echo "  ジョブ失敗 (exit: ${exit_code})"
+    echo "========================================"
+    for log in \
+        "${MRF_DIR}/log.decomposePar" \
+        "${MRF_DIR}/log.foamRun_MRF" \
+        "${TRANSIENT_DIR}/log.decomposePar_transient" \
+        "${TRANSIENT_DIR}/log.foamRun"
+    do
+        [ -f "$log" ] || continue
+        echo "--- ${log} (末尾30行) ---"
+        tail -30 "$log" || true
+        echo ""
+    done
+}
+trap on_exit EXIT
 
 echo "========================================"
 echo "  OpenFOAM Solver Job"
@@ -49,7 +68,7 @@ echo "========================================"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 1] GCS からケースファイルをダウンロード"
-gsutil -m cp -r "gs://${GCS_BUCKET}/cases/LKHD045"     "${WORKSPACE}/"
+gsutil -m cp -r "gs://${GCS_BUCKET}/cases/LKHD045"    "${WORKSPACE}/"
 gsutil -m cp -r "gs://${GCS_BUCKET}/cases/LKHD045MRF" "${WORKSPACE}/"
 echo "  ダウンロード完了"
 
@@ -58,25 +77,19 @@ echo "  ダウンロード完了"
 # ---------------------------------------------------------------------------
 echo ""
 echo "[Step 2] OpenFOAM 環境読み込み"
-# OpenFOAM bashrc は未設定変数の参照や非ゼロ終了を含むため、
-# -e（エラー終了）と -u（未定義変数）のみ一時解除する。
-# pipefail は無効化しない（-e が OFF の間は pipefail の有無は動作に影響しない）。
-# BASHRC_EXIT=$? で $? を 0 にリセットしてから strict mode を再有効化する。
+# bashrc は未設定変数参照・非ゼロ終了を含むため strict mode を一時解除する
 set +eu
 # shellcheck disable=SC1091
 source /opt/openfoam11/etc/bashrc
-BASHRC_EXIT=$?
 set -eu
 
-if [ -z "${WM_PROJECT_VERSION:-}" ]; then
-    echo "ERROR: OpenFOAM 環境の読み込みに失敗しました (WM_PROJECT_VERSION が未設定)"
-    exit 1
-fi
+[ -n "${WM_PROJECT_VERSION:-}" ] || { echo "ERROR: OpenFOAM 環境の読み込みに失敗しました (WM_PROJECT_VERSION が未設定)"; exit 1; }
 echo "  OpenFOAM: ${WM_PROJECT}-${WM_PROJECT_VERSION}"
 
 # shellcheck disable=SC1091
 . "${WM_PROJECT_DIR}/bin/tools/RunFunctions"
 
+# RunFunctions に restore0Dir が含まれない場合のフォールバック
 if ! type restore0Dir > /dev/null 2>&1; then
     restore0Dir() {
         if [ -d 0.orig ]; then
@@ -95,80 +108,58 @@ echo "[Step 3] polyMesh + fvMesh の解決とダウンロード"
 
 if [ -z "${GCS_MESH_PATH}" ]; then
     echo "  GCS_MESH_PATH 未設定 → gs://${GCS_BUCKET}/mesh/latest.txt から取得"
-    # || true: latest.txt が存在しない場合も set -euo pipefail で無言終了しないよう保護する。
-    # （gsutil cat 失敗 → pipefail → 代入コマンドが非ゼロ終了 → set -e でスクリプト終了という
-    #   落とし穴を回避し、直後の空文字チェックで正しくエラーを出す）
     GCS_MESH_PATH=$(gsutil cat "gs://${GCS_BUCKET}/mesh/latest.txt" 2>/dev/null \
         | tr -d '[:space:]') || true
 fi
 
-# latest.txt が存在しない場合のフォールバック: GCS から最新の mesh_<TIMESTAMP>/ を自動検出
+# latest.txt が存在しない場合は最新の mesh_<TIMESTAMP>/ を自動検出
 if [ -z "${GCS_MESH_PATH}" ]; then
     echo "  latest.txt が見つかりません。GCS から最新メッシュディレクトリを自動検出..."
     GCS_MESH_PATH=$(gsutil ls "gs://${GCS_BUCKET}/mesh/" 2>/dev/null \
         | grep -E 'mesh_[0-9]{8}_[0-9]{6}/$' | sort | tail -1) || true
-    if [ -n "${GCS_MESH_PATH}" ]; then
-        echo "  自動検出: ${GCS_MESH_PATH}"
-    fi
+    [ -n "${GCS_MESH_PATH}" ] && echo "  自動検出: ${GCS_MESH_PATH}"
 fi
 
 if [ -z "${GCS_MESH_PATH}" ]; then
     echo "ERROR: メッシュパスを特定できません。"
     echo "  確認事項:"
-    echo "    1. gs://${GCS_BUCKET}/mesh/latest.txt が存在するか確認"
-    echo "       gsutil cat gs://${GCS_BUCKET}/mesh/latest.txt"
-    echo "    2. メッシュ生成ジョブが正常完了しているか確認"
-    echo "    3. GCS_BUCKET 環境変数が正しいか確認 (現在: ${GCS_BUCKET})"
-    echo "    4. GCS_MESH_PATH 環境変数で明示的にパスを指定する"
+    echo "    1. gs://${GCS_BUCKET}/mesh/latest.txt が存在するか"
+    echo "    2. メッシュ生成ジョブが正常完了しているか"
+    echo "    3. GCS_MESH_PATH 環境変数で明示的にパスを指定する"
     echo "       例: GCS_MESH_PATH=gs://${GCS_BUCKET}/mesh/mesh_YYYYMMDD_HHMMSS/"
     echo "  GCS の mesh/ ディレクトリ一覧:"
     gsutil ls "gs://${GCS_BUCKET}/mesh/" 2>&1 | head -20 || true
     exit 1
 fi
-# GCS_MESH_PATH に末尾スラッシュを確実に付与（環境変数で直接設定された場合の保険）
 GCS_MESH_PATH="${GCS_MESH_PATH%/}/"
 echo "  使用メッシュ: ${GCS_MESH_PATH}"
 
-# constant/polyMesh/: メッシュ本体
-# ─ なぜ gsutil rsync を使うか ────────────────────────────────────────
-# gsutil cp -r はコピー先ディレクトリの有無によって展開先が変わる。
-# （constant/ が存在しない場合に constant/faces のような誤ったパスに
-#   展開される場合がある）
-# gsutil rsync は「src の内容を dst へ同期」という明確なセマンティクスを持ち、
-# 常に dst/faces のように展開されるため確実。
-# ────────────────────────────────────────────────────────────────────
-
-# GCS に polyMesh が存在するか事前確認
 if ! gsutil ls "${GCS_MESH_PATH}polyMesh/" >/dev/null 2>&1; then
     echo "ERROR: GCS に polyMesh が見つかりません: ${GCS_MESH_PATH}polyMesh/"
-    echo "  メッシュジョブが正常完了しているか確認してください"
     echo "  GCS メッシュディレクトリの内容:"
     gsutil ls "${GCS_MESH_PATH}" 2>&1 | head -20 || true
     exit 1
 fi
 
 mkdir -p "${TRANSIENT_DIR}/constant/polyMesh"
+# gsutil rsync を使用: cp -r はコピー先の有無で展開先が変わるが rsync は常に dst/ 配下に展開される
 gsutil -m rsync -r "${GCS_MESH_PATH}polyMesh" "${TRANSIENT_DIR}/constant/polyMesh"
 
-# ダウンロード検証（圧縮ファイル faces.gz も考慮）
 if [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces" ] && \
    [ ! -f "${TRANSIENT_DIR}/constant/polyMesh/faces.gz" ]; then
-    echo "ERROR: polyMesh のダウンロード後に faces/faces.gz が見つかりません"
-    echo "  ローカルの内容:"
+    echo "ERROR: polyMesh ダウンロード後に faces/faces.gz が見つかりません"
     find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 2 2>/dev/null | sort || true
     exit 1
 fi
 echo "  polyMesh ダウンロード OK"
 
-# constant/fvMesh/: NCC スティッチャー用データ (polyFaces)
-# GCS にはディレクトリオブジェクトが存在しないため gsutil ls でプレフィックス検索する。
 if gsutil ls "${GCS_MESH_PATH}fvMesh/" >/dev/null 2>&1; then
     mkdir -p "${TRANSIENT_DIR}/constant/fvMesh"
     gsutil -m rsync -r "${GCS_MESH_PATH}fvMesh" "${TRANSIENT_DIR}/constant/fvMesh"
+    echo "  fvMesh ダウンロード OK"
 else
     echo "  fvMesh が GCS に存在しません（NCC なしのメッシュまたは古いジョブ）、スキップ"
 fi
-echo "  メッシュダウンロード完了"
 
 # ---------------------------------------------------------------------------
 # Step 4: polyMesh + fvMesh シンボリックリンク再作成（MRF ケース用）
@@ -177,27 +168,21 @@ echo ""
 echo "[Step 4] polyMesh + fvMesh シンボリックリンク再作成"
 mkdir -p "${MRF_DIR}/constant"
 
-# GCS はシンボリックリンクを保存できないため、ダウンロード後に必ず再作成する。
-# polyMesh: メッシュ本体
+# GCS はシンボリックリンクを保存できないため、ダウンロード後に必ず再作成する
 rm -rf "${MRF_DIR}/constant/polyMesh"
 ln -sf "../../LKHD045/constant/polyMesh" "${MRF_DIR}/constant/polyMesh"
-echo "  ${MRF_DIR}/constant/polyMesh -> ../../LKHD045/constant/polyMesh"
 
 if [ ! -f "${MRF_DIR}/constant/polyMesh/faces" ] && \
    [ ! -f "${MRF_DIR}/constant/polyMesh/faces.gz" ]; then
     echo "ERROR: polyMesh シンボリックリンクが正しく解決されません"
-    echo "  リンク先の内容:"
     find "${TRANSIENT_DIR}/constant/polyMesh" -maxdepth 1 2>/dev/null | sort | head -20 || true
     exit 1
 fi
 
-# fvMesh: NCC スティッチャー用データ（NCC パッチがあれば必要）
 if [ -d "${TRANSIENT_DIR}/constant/fvMesh" ]; then
     rm -rf "${MRF_DIR}/constant/fvMesh"
     ln -sf "../../LKHD045/constant/fvMesh" "${MRF_DIR}/constant/fvMesh"
-    echo "  ${MRF_DIR}/constant/fvMesh -> ../../LKHD045/constant/fvMesh"
 fi
-
 echo "  シンボリックリンク確認 OK"
 
 # ---------------------------------------------------------------------------
@@ -236,20 +221,15 @@ echo "  MRF foamRun 完了"
 echo ""
 echo "[Step 6b] internalField コピー: MRF → pimpleFoam"
 
-# pimpleFoam ケースの 0/ を 0.orig/ から復元（mapFields のターゲットとして必要）
 cd "${TRANSIENT_DIR}"
 restore0Dir
 echo "  pimpleFoam ケース 0/ を restore0Dir (0.orig/) で初期化"
 
 cd "${MRF_DIR}"
 
-# foamListTimes から数値のみ抽出（バナー行・警告行を除去）
 LATEST_TIME=$(foamListTimes -latestTime 2>/dev/null \
     | grep -E '^[0-9]+(\.[0-9]+)?$' | tail -1)
-if [ -z "${LATEST_TIME}" ]; then
-    echo "ERROR: MRF の出力タイムディレクトリが見つかりません"
-    exit 1
-fi
+[ -n "${LATEST_TIME}" ] || { echo "ERROR: MRF の出力タイムディレクトリが見つかりません"; exit 1; }
 echo "  最新タイム: ${LATEST_TIME}"
 
 # NOTE: mapFields -consistent は OF11 NCC メッシュでセグフォルトするため使用不可。
@@ -319,8 +299,7 @@ echo ""
 echo "[Step 6c] foamRun (transient) 実行"
 cd "${TRANSIENT_DIR}"
 
-# foamRun が途中終了しても結果を GCS にアップロードするため
-# このブロックのみ set -e を一時解除して終了コードを手動で捕捉する。
+# 発散しても結果を GCS に保存するため、このブロックのみ set -e を解除
 TRANSIENT_EXIT=0
 set +e
 decomposePar -force 2>&1 | tee log.decomposePar_transient
@@ -341,13 +320,11 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 GCS_DEST="gs://${GCS_BUCKET}/${GCS_RESULT_PREFIX}/LKHD045_${TIMESTAMP}"
 echo "  宛先: ${GCS_DEST}/"
 
-# processor* ディレクトリは除外（reconstructPar 済み）
 gsutil -m cp -r \
     -x "processor[0-9]+" \
     "${TRANSIENT_DIR}/" \
     "${GCS_DEST}/"
 
-# MRF ログも保存
 gsutil -m cp \
     "${MRF_DIR}/log."* \
     "${GCS_DEST}/mrf_logs/" 2>/dev/null || true
