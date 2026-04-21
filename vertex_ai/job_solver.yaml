@@ -28,6 +28,6 @@ jobSpec:
             value: "3000"
           # Uncomment and set to use a specific mesh path.
           # If omitted, the path is read from gs://<GCS_BUCKET>/mesh/latest.txt.
-          # Example: gs://your-openfoam-bucket/mesh/polyMesh_20260415_120000/
+          # Example: gs://your-openfoam-bucket/mesh/mesh_20260415_120000/
           # - name: GCS_MESH_PATH
-          #   value: gs://your-openfoam-bucket/mesh/polyMesh_<TIMESTAMP>/
+          #   value: gs://your-openfoam-bucket/mesh/mesh_<TIMESTAMP>/

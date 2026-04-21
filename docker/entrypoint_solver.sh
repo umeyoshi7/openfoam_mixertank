@@ -95,12 +95,34 @@ echo "[Step 3] polyMesh + fvMesh の解決とダウンロード"
 
 if [ -z "${GCS_MESH_PATH}" ]; then
     echo "  GCS_MESH_PATH 未設定 → gs://${GCS_BUCKET}/mesh/latest.txt から取得"
+    # || true: latest.txt が存在しない場合も set -euo pipefail で無言終了しないよう保護する。
+    # （gsutil cat 失敗 → pipefail → 代入コマンドが非ゼロ終了 → set -e でスクリプト終了という
+    #   落とし穴を回避し、直後の空文字チェックで正しくエラーを出す）
     GCS_MESH_PATH=$(gsutil cat "gs://${GCS_BUCKET}/mesh/latest.txt" 2>/dev/null \
-        | tr -d '[:space:]')
+        | tr -d '[:space:]') || true
 fi
+
+# latest.txt が存在しない場合のフォールバック: GCS から最新の mesh_<TIMESTAMP>/ を自動検出
+if [ -z "${GCS_MESH_PATH}" ]; then
+    echo "  latest.txt が見つかりません。GCS から最新メッシュディレクトリを自動検出..."
+    GCS_MESH_PATH=$(gsutil ls "gs://${GCS_BUCKET}/mesh/" 2>/dev/null \
+        | grep -E 'mesh_[0-9]{8}_[0-9]{6}/$' | sort | tail -1) || true
+    if [ -n "${GCS_MESH_PATH}" ]; then
+        echo "  自動検出: ${GCS_MESH_PATH}"
+    fi
+fi
+
 if [ -z "${GCS_MESH_PATH}" ]; then
     echo "ERROR: メッシュパスを特定できません。"
-    echo "  GCS_MESH_PATH 環境変数を設定するか、メッシュ生成ジョブを先に実行してください。"
+    echo "  確認事項:"
+    echo "    1. gs://${GCS_BUCKET}/mesh/latest.txt が存在するか確認"
+    echo "       gsutil cat gs://${GCS_BUCKET}/mesh/latest.txt"
+    echo "    2. メッシュ生成ジョブが正常完了しているか確認"
+    echo "    3. GCS_BUCKET 環境変数が正しいか確認 (現在: ${GCS_BUCKET})"
+    echo "    4. GCS_MESH_PATH 環境変数で明示的にパスを指定する"
+    echo "       例: GCS_MESH_PATH=gs://${GCS_BUCKET}/mesh/mesh_YYYYMMDD_HHMMSS/"
+    echo "  GCS の mesh/ ディレクトリ一覧:"
+    gsutil ls "gs://${GCS_BUCKET}/mesh/" 2>&1 | head -20 || true
     exit 1
 fi
 # GCS_MESH_PATH に末尾スラッシュを確実に付与（環境変数で直接設定された場合の保険）
