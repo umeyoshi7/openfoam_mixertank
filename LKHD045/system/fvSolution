@@ -100,8 +100,8 @@ PIMPLE
     // kEpsilon の epsilon→0 によるゼロ除算 FPE を防ぐ下限
     limitFields
     {
-        epsilon     1e-10;
-        k           1e-10;
+        epsilon     1e-6;
+        k           1e-6;
     }
 }
 
@@ -109,7 +109,10 @@ relaxationFactors
 {
     equations
     {
-       ".*"       1;
+        U           0.7;
+        k           0.5;
+        epsilon     0.5;
+        ".*"        0.9;
     }
 }
 
