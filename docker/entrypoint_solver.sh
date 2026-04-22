@@ -320,10 +320,10 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 GCS_DEST="gs://${GCS_BUCKET}/${GCS_RESULT_PREFIX}/LKHD045_${TIMESTAMP}"
 echo "  宛先: ${GCS_DEST}/"
 
-gsutil -m cp -r \
+gsutil -m rsync -r \
     -x "processor[0-9]+" \
-    "${TRANSIENT_DIR}/" \
-    "${GCS_DEST}/"
+    "${TRANSIENT_DIR}" \
+    "${GCS_DEST}"
 
 gsutil -m cp \
     "${MRF_DIR}/log."* \
