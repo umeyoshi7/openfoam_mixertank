@@ -25,3 +25,7 @@ jobSpec:
             value: mesh
           - name: CASE_NAME
             value: LKHD045
+          # 本番メッシュ解像度 (snappyHexMeshDict の 300000 をこの値で上書き)
+          # ローカルテストでは 300000 を指定するかこの行を削除
+          - name: MAX_GLOBAL_CELLS
+            value: "3000000"
