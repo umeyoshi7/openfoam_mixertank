@@ -19,7 +19,8 @@
 #   GCS_BUCKET          GCS バケット名 (必須)
 #   NCORES              MPI コア数 (デフォルト: 4)
 #   GCS_RESULT_PREFIX   結果の GCS プレフィックス (デフォルト: results)
-#   MRF_END_TIME        MRF 計算の終了イテレーション数 (デフォルト: 3000)
+#   MRF_END_TIME        MRF 計算の終了イテレーション数 (デフォルト: 5000)
+#   TRANSIENT_END_TIME  transient 計算の終了時刻 [s] (省略時: controlDict の値を使用)
 #   GCS_MESH_PATH       メッシュの GCS パス (省略時: mesh/latest.txt から自動取得)
 #------------------------------------------------------------------------------
 set -euo pipefail
@@ -27,7 +28,8 @@ set -euo pipefail
 GCS_BUCKET="${GCS_BUCKET:?ERROR: 環境変数 GCS_BUCKET が設定されていません}"
 NCORES="${NCORES:-4}"
 GCS_RESULT_PREFIX="${GCS_RESULT_PREFIX:-results}"
-MRF_END_TIME="${MRF_END_TIME:-3000}"
+MRF_END_TIME="${MRF_END_TIME:-5000}"
+TRANSIENT_END_TIME="${TRANSIENT_END_TIME:-}"
 GCS_MESH_PATH="${GCS_MESH_PATH:-}"
 WORKSPACE="/workspace"
 MRF_DIR="${WORKSPACE}/LKHD045MRF"
@@ -60,6 +62,7 @@ echo "  OpenFOAM Solver Job"
 echo "  バケット   : gs://${GCS_BUCKET}"
 echo "  コア数     : ${NCORES}"
 echo "  MRF終了時刻: ${MRF_END_TIME}"
+echo "  Transient終了: ${TRANSIENT_END_TIME:-controlDict の値を使用}"
 echo "  作業DIR    : ${WORKSPACE}"
 echo "========================================"
 
@@ -216,6 +219,75 @@ rm -rf processor[0-9]*
 echo "  MRF foamRun 完了"
 
 # ---------------------------------------------------------------------------
+# Step 6a-check: MRF収束品質チェック（不良初期値が transient を破壊するのを防ぐ）
+# ---------------------------------------------------------------------------
+echo ""
+echo "[Step 6a-check] MRF収束品質チェック"
+python3 - << PYEOF
+import os, sys
+
+log_path = "${MRF_DIR}/log.foamRun_MRF"
+if not os.path.exists(log_path):
+    print("  WARNING: log.foamRun_MRF が見つかりません。チェックをスキップします。")
+    sys.exit(0)
+
+with open(log_path) as f:
+    lines = f.readlines()
+
+cumulative   = None
+bounding_eps = 0
+last_p_res   = None
+
+for line in lines:
+    if 'cumulative' in line:
+        try:
+            cumulative = float(line.strip().split()[-1])
+        except (ValueError, IndexError):
+            pass
+    if 'bounding epsilon' in line:
+        bounding_eps += 1
+    if 'Solving for p' in line and 'Initial residual' in line:
+        try:
+            last_p_res = float(line.split('Initial residual =')[1].split(',')[0])
+        except (ValueError, IndexError):
+            pass
+
+print(f"  累積連続性誤差   : {cumulative}")
+print(f"  epsilon bounding : {bounding_eps} 回")
+print(f"  最終 p 初期残差  : {last_p_res}")
+
+failures = []
+if cumulative is not None and abs(cumulative) > 1.0:
+    failures.append(
+        f"累積連続性誤差 {cumulative:.4f} > 1.0 "
+        f"→ 圧力場が収束していないため transient で SIGFPE が発生します"
+    )
+if last_p_res is not None and last_p_res > 2e-3:
+    failures.append(
+        f"最終 p 初期残差 {last_p_res:.2e} > 2e-3 "
+        f"→ 圧力場が未収束のまま転写されます"
+    )
+
+if failures:
+    print("")
+    print("ERROR: MRF 収束品質が不十分なため transient 計算を中断します。")
+    for msg in failures:
+        print(f"  - {msg}")
+    print("")
+    print("対策:")
+    print("  1. MRF_END_TIME を増やして再実行してください (現在: ${MRF_END_TIME})")
+    print("     例: MRF_END_TIME=10000")
+    print("  2. LKHD045MRF/system/fvSolution の limitFields が epsilon >= 1e-6 になっているか確認してください")
+    if bounding_eps > 0:
+        print(f"  (補足: epsilon bounding {bounding_eps} 回発生 → 乱流場が不安定)")
+    sys.exit(1)
+
+if bounding_eps > 0:
+    print(f"  [WARN] epsilon bounding が {bounding_eps} 回発生しています")
+print("  [OK] MRF 収束品質は正常範囲です")
+PYEOF
+
+# ---------------------------------------------------------------------------
 # Step 6b: Python internalField コピー（MRF → pimpleFoam 初期値転写）
 # ---------------------------------------------------------------------------
 echo ""
@@ -298,6 +370,11 @@ echo "  internalField コピー完了"
 echo ""
 echo "[Step 6c] foamRun (transient) 実行"
 cd "${TRANSIENT_DIR}"
+
+if [ -n "${TRANSIENT_END_TIME}" ]; then
+    foamDictionary -entry endTime -set "${TRANSIENT_END_TIME}" system/controlDict
+    echo "  transient endTime を ${TRANSIENT_END_TIME} s に設定"
+fi
 
 # 発散しても結果を GCS に保存するため、このブロックのみ set -e を解除
 TRANSIENT_EXIT=0
