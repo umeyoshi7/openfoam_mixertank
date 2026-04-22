@@ -21,8 +21,16 @@ MRF1
 
     active              yes;
 
-    // AMI境界でのMRFソース重複適用を防ぐ
-    nonRotatingPatches  (AMI1 AMI2);
+    // MRF フラックス補正の対象外パッチ
+    // AMI1/AMI2: バッフル面（フレーム境界）
+    // nonConformalCyclic_on_*: NCC 結合パッチ — NCC 自身がフラックスを補間するため
+    //   MRF が重ねて補正すると結合対の片側だけ二重補正になり、
+    //   ステップごとに一定値の global 連続性誤差（~0.0005）が発生して
+    //   SIMPLE の p 残差が収束閾値以下に下がらなくなる。
+    // nonConformalError_on_*: 幾何不整合面（zero-flux）もフレーム補正不要。
+    nonRotatingPatches  (AMI1 AMI2
+                         nonConformalCyclic_on_AMI1 nonConformalCyclic_on_AMI2
+                         nonConformalError_on_AMI1  nonConformalError_on_AMI2);
 
     origin              (0 0 0);
     axis                (0 1 0);

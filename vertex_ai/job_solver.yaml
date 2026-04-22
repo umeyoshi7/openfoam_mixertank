@@ -25,7 +25,11 @@ jobSpec:
           - name: GCS_RESULT_PREFIX
             value: results
           - name: MRF_END_TIME
-            value: "3000"
+            value: "5000"
+          # transient 計算の終了時刻 [s]。省略時は controlDict の endTime を使用。
+          # 1 回転 ≈ 0.6 s (ω=10.47 rad/s)。本番では 30 s 以上を推奨。
+          # - name: TRANSIENT_END_TIME
+          #   value: "30"
           # Uncomment and set to use a specific mesh path.
           # If omitted, the path is read from gs://<GCS_BUCKET>/mesh/latest.txt.
           # Example: gs://your-openfoam-bucket/mesh/mesh_20260415_120000/
