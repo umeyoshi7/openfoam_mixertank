@@ -96,6 +96,13 @@ PIMPLE
     nNonOrthogonalCorrectors 3;
     pRefPoint    (0 0.06 0.15);
     pRefValue   0;
+
+    // kEpsilon の epsilon→0 によるゼロ除算 FPE を防ぐ下限
+    limitFields
+    {
+        epsilon     1e-10;
+        k           1e-10;
+    }
 }
 
 relaxationFactors

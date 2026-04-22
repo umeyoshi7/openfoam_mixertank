@@ -62,6 +62,13 @@ SIMPLE
         U               1e-4;
         "(k|epsilon)"   1e-4;
     }
+
+    // MRF 結果の epsilon 負値化を防ぎ transient への転写品質を維持する
+    limitFields
+    {
+        epsilon     1e-10;
+        k           1e-10;
+    }
 }
 
 relaxationFactors
