@@ -331,7 +331,11 @@ def split_foam_field(text):
         i += 1
     return text[:m.start()], text[m.start():i]
 
-fields = ['U', 'p', 'k', 'epsilon', 'nut']
+# nut は転写しない：
+#   - 0.orig/nut は uniform 0 であり foamRun 起動時に kEpsilon が自動再計算する
+#   - MRF の nut は epsilon_max=358 由来で異常に高く、転写すると
+#     dynamicMesh 第1ステップの momentumPredictor で SIGFPE が発生する
+fields = ['U', 'p', 'k', 'epsilon']
 errors = 0
 
 for field in fields:
@@ -363,6 +367,14 @@ if errors > 0:
 PYEOF
 
 echo "  internalField コピー完了"
+
+# ---------------------------------------------------------------------------
+# Step 6b-post: nut を 0.orig/nut でリセット（MRF転写値の混入防止）
+# ---------------------------------------------------------------------------
+echo ""
+echo "[Step 6b-post] nut リセット (0.orig/nut → 0/nut)"
+cp "${TRANSIENT_DIR}/0.orig/nut" "${TRANSIENT_DIR}/0/nut"
+echo "  nut リセット完了 (internalField uniform 0)"
 
 # ---------------------------------------------------------------------------
 # Step 6c: foamRun（非定常計算、dynamicMesh + NCC）
