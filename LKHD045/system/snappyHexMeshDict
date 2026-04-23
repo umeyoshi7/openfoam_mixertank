@@ -154,7 +154,10 @@ castellatedMeshControls
 
     locationInMesh (0 -0.07 0);
 
-    allowFreeStandingZoneFaces true;
+    // false: rotating faceZone に実際の内部面だけを登録する。
+    // true にすると境界面や重複面がゾーンに混入し、createNonConformalCouples が
+    // AMI 面数 (36k) よりも多い NCC 面数を生成して coverage > 1.0 エラーを引き起こす。
+    allowFreeStandingZoneFaces false;
 }
 
 
