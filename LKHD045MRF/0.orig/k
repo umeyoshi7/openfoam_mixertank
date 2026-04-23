@@ -27,22 +27,22 @@ boundaryField
     reactor_HD0.45
     {
         type            kqRWallFunction;
-        value           $internalField;
+        value           uniform 0.0064;
     }
     shaft_HD0.45
     {
         type            kqRWallFunction;
-        value           $internalField;
+        value           uniform 0.0064;
     }
     impeller_HD0.45
     {
         type            kqRWallFunction;
-        value           $internalField;
+        value           uniform 0.0064;
     }
     baffle_HD0.45
     {
         type            kqRWallFunction;
-        value           $internalField;
+        value           uniform 0.0064;
     }
     AMI1
     {

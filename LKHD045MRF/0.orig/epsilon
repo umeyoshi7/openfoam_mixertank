@@ -27,22 +27,22 @@ boundaryField
     reactor_HD0.45
     {
         type            epsilonWallFunction;
-        value           $internalField;
+        value           uniform 0.0047;
     }
     shaft_HD0.45
     {
         type            epsilonWallFunction;
-        value           $internalField;
+        value           uniform 0.0047;
     }
     impeller_HD0.45
     {
         type            epsilonWallFunction;
-        value           $internalField;
+        value           uniform 0.0047;
     }
     baffle_HD0.45
     {
         type            epsilonWallFunction;
-        value           $internalField;
+        value           uniform 0.0047;
     }
     AMI1
     {
