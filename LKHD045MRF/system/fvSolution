@@ -63,12 +63,17 @@ SIMPLE
         "(k|epsilon)"   1e-4;
     }
 
-    // epsilon が 1e-10 のままだと nut=Cmu*k²/epsilon が爆発し transient で SIGFPE が発生する
-    // transient 側の limitFields と同値 1e-6 に揃えて転写品質を確保する
+    // transient (LKHD045) 側と同じ上下限を設定する。
+    // epsilon/k: 下限のみ（負値・ゼロ除算防止）
+    // nut: 上限（乱流粘性爆発 → GAMG 収束不全 → SIGFPE の連鎖を防止）
+    // p/U: 上限（NaN 拡散を早期に遮断）
     limitFields
     {
         epsilon     1e-6;
         k           1e-6;
+        nut         1e-3;
+        p           1e6;
+        U           100;
     }
 }
 
@@ -81,8 +86,8 @@ relaxationFactors
     equations
     {
         U               0.7;
-        k               0.5;
-        epsilon         0.5;
+        k               0.3;
+        epsilon         0.3;
     }
 }
 
