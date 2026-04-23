@@ -91,17 +91,20 @@ PIMPLE
     momentumPredictor   yes;
     correctPhi          yes;
     correctMeshPhi      no;
-    nOuterCorrectors    7;
+    nOuterCorrectors    10;
     nCorrectors         4;
     nNonOrthogonalCorrectors 3;
     pRefPoint    (0 0.06 0.15);
     pRefValue   0;
 
-    // kEpsilon の epsilon→0 によるゼロ除算 FPE を防ぐ下限
+    // kEpsilon の FPE 防止：epsilon/k の下限 + nut/p/U の上限
     limitFields
     {
         epsilon     1e-6;
         k           1e-6;
+        nut         1e-3;
+        p           1e6;
+        U           100;
     }
 }
 
