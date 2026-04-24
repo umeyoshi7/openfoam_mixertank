@@ -118,7 +118,8 @@ relaxationFactors
     {
         U           0.7;
         k           0.5;
-        epsilon     0.5;
+        // MRF と同じ 0.3 に合わせて dynamicMesh NCC 界面での epsilon 振動を抑制する
+        epsilon     0.3;
         ".*"        0.9;
     }
 }
