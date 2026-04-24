@@ -66,12 +66,13 @@ SIMPLE
     // transient (LKHD045) 側と同じ上下限を設定する。
     // epsilon/k: 下限のみ（負値・ゼロ除算防止）
     // nut: 上限（乱流粘性爆発 → GAMG 収束不全 → SIGFPE の連鎖を防止）
+    // nut 上限: 水 @100 RPM の推定値 ~1.6e-3 を考慮して 0.01 に設定
     // p/U: 上限（NaN 拡散を早期に遮断）
     limitFields
     {
         epsilon     1e-6;
         k           1e-6;
-        nut         1e-3;
+        nut         0.01;
         p           1e6;
         U           100;
     }

@@ -119,14 +119,18 @@ foamDictionary \
     -entry numberOfSubdomains -set "${NCORES}" \
     system/decomposeParDict
 
-# snappyHexMeshDict のセル数上限を環境変数で上書き
-# snappyHexMeshDict に記載のデフォルト値はローカルテスト用（300000）。
-# Vertex AI 本番では MAX_GLOBAL_CELLS=3000000 (デフォルト) を使用する。
+# maxGlobalCells / maxLocalCells を環境変数で上書き（デフォルト 3000000）
+# MAX_GLOBAL_CELLS を小さく指定すると小規模メッシュでテスト可能。
+# maxLocalCells は maxGlobalCells と同値に設定して律速にならないようにする。
 foamDictionary \
     -entry castellatedMeshControls/maxGlobalCells \
     -set "${MAX_GLOBAL_CELLS}" \
     system/snappyHexMeshDict
-echo "  maxGlobalCells を ${MAX_GLOBAL_CELLS} に設定"
+foamDictionary \
+    -entry castellatedMeshControls/maxLocalCells \
+    -set "${MAX_GLOBAL_CELLS}" \
+    system/snappyHexMeshDict
+echo "  maxGlobalCells / maxLocalCells を ${MAX_GLOBAL_CELLS} に設定"
 
 # CRITICAL: decomposePar の前に 0/ を 0.mesh/ で置換する。
 # blockMesh が生成するパッチ (allBoundary, top) と 0/ のパッチ
@@ -136,6 +140,7 @@ if [ ! -d "0.mesh" ]; then
     echo "ERROR: 0.mesh/ が存在しません。ケースファイルを確認してください"
     exit 1
 fi
+rm -rf 0.solver_backup/
 [ -d "0" ] && mv 0/ 0.solver_backup/
 cp -r 0.mesh/ 0/
 

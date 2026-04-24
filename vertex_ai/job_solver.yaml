@@ -27,10 +27,11 @@ jobSpec:
           - name: MRF_END_TIME
             value: "5000"
           # transient 計算の終了時刻 [s]
-          # 1 回転 ≈ 0.6 s (ω=10.47 rad/s)。統計的に意味ある結果には 20 回転 (12 s) 以上推奨。
-          # controlDict のデフォルト endTime=1 s はローカルテスト用のため必ず設定すること。
+          # 1 回転 ≈ 0.6 s (ω=10.47 rad/s)。
+          # 初回テスト: 2 s (≈3 回転, ~2-3 h @ 8 cores 3M cells) で動作確認。
+          # 本番: 30 s (50 回転, 統計平均可能)。maxDeltaT=1e-3 + Co=0.5 で~30,000 steps。
           - name: TRANSIENT_END_TIME
-            value: "30"
+            value: "2"
           # Uncomment and set to use a specific mesh path.
           # If omitted, the path is read from gs://<GCS_BUCKET>/mesh/latest.txt.
           # Example: gs://your-openfoam-bucket/mesh/mesh_20260415_120000/

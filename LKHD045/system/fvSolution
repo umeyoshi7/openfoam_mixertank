@@ -91,18 +91,22 @@ PIMPLE
     momentumPredictor   yes;
     correctPhi          yes;
     correctMeshPhi      no;
-    nOuterCorrectors    10;
+    // 10 → 5: MRF 良質初期値を使うため 5 で十分収束する。
+    // 10 outer × NCC stitching(~1 s/iter @8cores) = 10 s/timestep → 遅すぎる。
+    nOuterCorrectors    5;
     nCorrectors         4;
     nNonOrthogonalCorrectors 3;
     pRefPoint    (0 0.06 0.15);
     pRefValue   0;
 
     // kEpsilon の FPE 防止：epsilon/k の下限 + nut/p/U の上限
+    // nut 上限: 水 @100 RPM の推定値 ~1.6e-3 を考慮して 0.01 に設定
+    // (旧値 1e-3 は Re=470k では過小でクリップが発生していた)
     limitFields
     {
         epsilon     1e-6;
         k           1e-6;
-        nut         1e-3;
+        nut         0.01;
         p           1e6;
         U           100;
     }

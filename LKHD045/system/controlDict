@@ -31,9 +31,12 @@ deltaT          1e-6;
 
 writeControl    adjustableRunTime;
 
-writeInterval   0.025;
+// Vertex AI 3M cells × 5 fields ≈ 85 MB/write。
+// writeInterval=0.025 は 1200 writes (100 GB) になるため 0.5 s に変更。
+// 1 rotation = 2π/10.47 ≈ 0.6 s なので 0.5 s 間隔で十分な時系列分解能。
+writeInterval   0.5;
 
-purgeWrite      0;
+purgeWrite      5;
 
 writeFormat     ascii;
 
@@ -49,9 +52,13 @@ runTimeModifiable yes;
 
 adjustTimeStep  yes;
 
-maxCo           0.1;
+// Co=0.5 は PIMPLE で標準的な設定（安定性は nCorrectors が担保）。
+// maxDeltaT=1e-3 は 1 rotation (0.6 s) の約 1/600。
+// 従来の Co=0.1, maxDeltaT=1e-4 は ~30 万ステップ/30 s で非現実的。
+// Co=0.5 + maxDeltaT=1e-3 では ~3 万ステップ/30 s に抑えられる。
+maxCo           0.5;
 
-maxDeltaT       0.0001;
+maxDeltaT       1e-3;
 
 libs
 (

@@ -25,7 +25,7 @@ startTime       0;
 
 stopAt          endTime;
 
-// Vertex AI 本番: 3000, ローカルテスト: 200
+// Vertex AI 本番: 5000 (job_solver.yaml MRF_END_TIME), ローカルテスト: 200
 endTime         200;
 
 deltaT          1;

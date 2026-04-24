@@ -55,12 +55,9 @@ geometry
 
 castellatedMeshControls
 {
-    maxLocalCells 100000;
+    maxLocalCells 3000000;
 
-    // ★ entrypoint_mesh.sh が MAX_GLOBAL_CELLS 環境変数でこの値を上書きする。
-    //    Vertex AI 本番: MAX_GLOBAL_CELLS=3000000 (job_mesh.yaml で指定)
-    //    ローカル直接実行: このファイルの値 300000 が使われる（メモリ節約）
-    maxGlobalCells 300000;
+    maxGlobalCells 3000000;
 
     minRefinementCells 2;
 

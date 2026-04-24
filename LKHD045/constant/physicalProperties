@@ -14,12 +14,16 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+// 水 (20°C): rho = 998.2 kg/m^3, mu = 1.002e-3 Pa·s, nu = 1.004e-6 m^2/s
+viscosityModel  constant;
+
+nu              [0 2 -1 0 0 0 0] 1.004e-6;
+
+// ---------- 旧設定 (コメントアウト) ----------
 // Power-law fluid (LK-1): K=1.352e-2 Pa·s^n, n=0.567, rho=8020 kg/m^3
 // Effective kinematic viscosity at representative shear rate (~10 s^-1).
 // Note: full power-law physics via momentumTransport generalisedNewtonian
 // is not yet supported with RAS turbulence in OF11.
-viscosityModel  constant;
-
-nu              [0 2 -1 0 0 0 0] 1.686e-6;
+// nu              [0 2 -1 0 0 0 0] 1.686e-6;
 
 // ************************************************************************* //
