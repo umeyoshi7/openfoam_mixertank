@@ -234,9 +234,10 @@ if not os.path.exists(log_path):
 with open(log_path) as f:
     lines = f.readlines()
 
-cumulative   = None
-bounding_eps = 0
-last_p_res   = None
+cumulative    = None
+bounding_eps  = 0
+last_p_res    = None
+epsilon_max   = None
 
 for line in lines:
     if 'cumulative' in line:
@@ -246,6 +247,11 @@ for line in lines:
             pass
     if 'bounding epsilon' in line:
         bounding_eps += 1
+        if 'max:' in line:
+            try:
+                epsilon_max = float(line.split('max:')[1].split()[0])
+            except (ValueError, IndexError):
+                pass
     if 'Solving for p' in line and 'Initial residual' in line:
         try:
             last_p_res = float(line.split('Initial residual =')[1].split(',')[0])
@@ -254,7 +260,12 @@ for line in lines:
 
 print(f"  累積連続性誤差   : {cumulative}")
 print(f"  epsilon bounding : {bounding_eps} 回")
+print(f"  MRF epsilon 最大値: {epsilon_max}")
 print(f"  最終 p 初期残差  : {last_p_res}")
+
+if epsilon_max is not None and epsilon_max > 200:
+    print(f"  [WARN] epsilon max = {epsilon_max:.1f} > 200 : Step 6b で 100 にクリップ転写されます")
+    print(f"         クリップなし時の NCC スパイク推定: {epsilon_max * 2.7:.0f} → クリップ後: ~{100 * 2.7:.0f}")
 
 failures = []
 if cumulative is not None and abs(cumulative) > 1.0:
@@ -306,6 +317,8 @@ echo "  最新タイム: ${LATEST_TIME}"
 
 # NOTE: mapFields -consistent は OF11 NCC メッシュでセグフォルトするため使用不可。
 #       Python で internalField のみ MRF 解からコピーし、BC は pimpleFoam 0.orig/ を維持する。
+#       epsilon は転写前に上限クリップ：MRF max ~330 が dynamicMesh NCC 初期化で
+#       ~2.7 倍に跳ね上がり圧力ソルバーを発散させる（SIGFPE の直接原因）。
 python3 - << PYEOF
 import os, re, sys
 
@@ -314,6 +327,36 @@ TRAN_DIR  = "${TRANSIENT_DIR}"
 MRF_TIME  = "${LATEST_TIME}"
 SRC_DIR   = os.path.join(MRF_DIR, MRF_TIME)
 TGT_DIR   = os.path.join(TRAN_DIR, "0")
+
+# MRF epsilon max (~330) が NCC 初期化時に ~2.7 倍スパイクする対策として
+# 転写前に 100 でクリップする。これにより最悪でも ~270 に抑えられ GAMG が安定する。
+EPSILON_CLIP_MAX = 100.0
+
+def clip_nonuniform_scalar(text, field_name, max_val, min_val=1e-10):
+    """internalField nonuniform List<scalar> の値を [min_val, max_val] でクリップする。"""
+    pattern = r'(internalField\s+nonuniform\s+List<scalar>\s*\n?\s*\d+\s*\n?\s*\()([^)]+)(\))'
+    matched = [False]
+    def replacer(m):
+        matched[0] = True
+        raw = m.group(2)
+        try:
+            floats = [float(v) for v in raw.split()]
+        except ValueError:
+            print(f"    {field_name}: 値のパースに失敗、クリップをスキップ")
+            return m.group(0)
+        if not floats:
+            return m.group(0)
+        orig_max = max(floats)
+        orig_min = min(floats)
+        n_clipped = sum(1 for v in floats if v > max_val)
+        clipped = [min(max(v, min_val), max_val) for v in floats]
+        print(f"    {field_name} clip: [{orig_min:.3e}, {orig_max:.3e}] → max={max(clipped):.3e} ({n_clipped} セルをクリップ)")
+        new_raw = '\n'.join(f'{v:.10e}' for v in clipped)
+        return m.group(1) + '\n' + new_raw + '\n' + m.group(3)
+    result = re.sub(pattern, replacer, text, flags=re.DOTALL)
+    if not matched[0]:
+        print(f"    {field_name}: nonuniform フィールドなし（uniform または空）、クリップ不要")
+    return result
 
 def split_foam_field(text):
     """boundaryField ブロックの開始位置で分割する。"""
@@ -333,7 +376,7 @@ def split_foam_field(text):
 
 # nut は転写しない：
 #   - 0.orig/nut は uniform 0 であり foamRun 起動時に kEpsilon が自動再計算する
-#   - MRF の nut は epsilon_max=358 由来で異常に高く、転写すると
+#   - MRF の nut は epsilon_max=330 由来で異常に高く、転写すると
 #     dynamicMesh 第1ステップの momentumPredictor で SIGFPE が発生する
 fields = ['U', 'p', 'k', 'epsilon']
 errors = 0
@@ -351,6 +394,13 @@ for field in fields:
         src_text = f.read()
     with open(tgt) as f:
         tgt_text = f.read()
+
+    # epsilon のみ転写前にクリップ
+    # MRF の高 epsilon 値が dynamicMesh NCC 初期化で約 2.7 倍に跳ね上がり
+    # GAMG 圧力ソルバーを発散させるため、上限を設けて初期スパイクを抑制する
+    if field == 'epsilon':
+        src_text = clip_nonuniform_scalar(src_text, field, EPSILON_CLIP_MAX)
+
     src_before, _ = split_foam_field(src_text)
     _, tgt_boundary = split_foam_field(tgt_text)
     if tgt_boundary is None:
